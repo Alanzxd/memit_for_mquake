@@ -151,6 +151,10 @@ def main(
         )
         etc_args = dict(cache_template=cache_template) if any(alg in alg_name for alg in ["ROME", "MEMIT"]) else dict()
 
+        # Ensure the model is on the correct device
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.to(device)
+        
         # Print the record and requested rewrite for debugging
         print('record', record)
         print('requested rewrite', record["requested_rewrite"])
@@ -162,9 +166,20 @@ def main(
             for rw in record["requested_rewrite"]
         ]
         
+        # Function to apply the algorithm and handle device placement
+        def apply_algo_with_device(model, tok, rewrites, hparams, **kwargs):
+            for rewrite in rewrites:
+                input_text = rewrite['prompt'].format(rewrite['subject'])
+                input_ids = tok.encode(input_text, return_tensors='pt').to(device)
+                attention_mask = input_ids.ne(tok.pad_token_id).to(device)
+                rewrite['input_ids'] = input_ids
+                rewrite['attention_mask'] = attention_mask
+            
+            return apply_algo(model, tok, rewrites, hparams, **kwargs)
+        
         # Apply the algorithm
         start = time()
-        edited_model, weights_copy = apply_algo(
+        edited_model, weights_copy = apply_algo_with_device(
             model,
             tok,
             flattened_rewrites,
@@ -176,6 +191,7 @@ def main(
         )
         exec_time = time() - start
         print("Execution took", exec_time)
+
         print("---------------------------------------------------------------------------------------------------------")
         print("---------------------------------------------------------------------------------------------------------")
         # Evaluate new model

@@ -125,9 +125,9 @@ def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     record: dict,
-    snips: Optional[AttributeSnippets] = None,
-    vec: Optional[TfidfVectorizer] = None
-) -> Dict:
+    snips: typing.Optional[AttributeSnippets] = None,
+    vec: typing.Optional[TfidfVectorizer] = None
+) -> typing.Dict:
     """
     Evaluates the rewritten model on a MQuAKE dataset record.
 

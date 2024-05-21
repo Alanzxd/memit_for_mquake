@@ -216,7 +216,10 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
         input_ids = tokenizer.encode(question, return_tensors="pt")
         outputs = model.generate(input_ids, max_length=50)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        if correct_answer.lower() in generated_text.lower() or any(alias.lower()
+        if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
+            correct_responses += 1
+
+    return correct_responses / len(questions)
 
 
 

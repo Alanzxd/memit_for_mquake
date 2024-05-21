@@ -151,6 +151,10 @@ def main(
         )
         etc_args = dict(cache_template=cache_template) if any(alg in alg_name for alg in ["ROME", "MEMIT"]) else dict()
 
+        #check
+        print('record',record)
+        print('requested rewrite',record["requested_rewrite"])
+        
         start = time()
         edited_model, weights_copy = apply_algo(
             model,

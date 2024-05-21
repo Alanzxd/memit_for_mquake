@@ -151,18 +151,23 @@ def main(
         )
         etc_args = dict(cache_template=cache_template) if any(alg in alg_name for alg in ["ROME", "MEMIT"]) else dict()
 
-        #check
-        print('record',record)
-        print('requested rewrite',record["requested_rewrite"])
+        # Print the record and requested rewrite for debugging
+        print('record', record)
+        print('requested rewrite', record["requested_rewrite"])
         
+        # Flatten the requested_rewrite structures within each record
+        flattened_rewrites = [
+            {"case_id": record["case_id"], **rw}
+            for record in record_chunks
+            for rw in record["requested_rewrite"]
+        ]
+        
+        # Apply the algorithm
         start = time()
         edited_model, weights_copy = apply_algo(
             model,
             tok,
-            [
-                {"case_id": record["case_id"], **record["requested_rewrite"]}
-                for record in record_chunks
-            ],
+            flattened_rewrites,
             hparams,
             copy=False,
             return_orig_weights=True,
@@ -171,7 +176,8 @@ def main(
         )
         exec_time = time() - start
         print("Execution took", exec_time)
-
+        print("---------------------------------------------------------------------------------------------------------")
+        print("---------------------------------------------------------------------------------------------------------")
         # Evaluate new model
         start = time()
         gen_test_vars = [snips, vec]

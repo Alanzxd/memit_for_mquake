@@ -59,9 +59,11 @@ def main(
 
     # Determine run directory
     # Create new dir if not continuing from prev run OR prev run doesn't exist
+    # 获取当前工作目录
+    current_dir = Path.cwd()
     if (
         continue_from_run is None
-        or not (run_dir := RESULTS_DIR / dir_name / continue_from_run).exists()
+        or not (run_dir := current_dir / RESULTS_DIR / dir_name / continue_from_run).exists()
     ):
         continue_from_run = None
     if continue_from_run is None:
@@ -75,7 +77,7 @@ def main(
             run_id = 0 if not id_list else max(id_list) + 1
         else:
             run_id = 0
-        run_dir = RESULTS_DIR / dir_name / f"run_{str(run_id).zfill(3)}"
+        run_dir = current_dir / RESULTS_DIR / dir_name / f"run_{str(run_id).zfill(3)}"
         run_dir.mkdir(parents=True, exist_ok=True)
     print(f"Results will be stored at {run_dir}")
 
@@ -119,6 +121,7 @@ def main(
 
     # Get cache templates
     cache_template = None
+    KV_DIR = Path.cwd() / "cache"
     if use_cache:
         cache_template = (
             KV_DIR
@@ -126,7 +129,7 @@ def main(
             / f"{ds_name}_layer_{{}}_clamp_{{}}_case_{{}}.npz"
         )
         print(f"Will load cache from {cache_template}")
-
+        
     # Iterate through dataset
     for record_chunks in chunks(ds, num_edits):
         case_result_template = str(run_dir / "{}_edits-case_{}.json")

@@ -140,7 +140,9 @@ def compute_rewrite_quality_mquake(
     multi_hop_accuracy = calculate_multi_hop_accuracy(
         model, tokenizer, record['questions'], record['new_answer'], record.get('new_answer_alias', [])
     )
-
+    print(edit_success_rate,
+        instance_accuracy,
+        multi_hop_accuracy)
     return {
         'edit_success_rate': edit_success_rate,
         'instance_accuracy': instance_accuracy,
@@ -177,7 +179,8 @@ def calculate_instance_accuracy(model, tokenizer, record):
         prompt = fact['cloze']
         answer = fact['answer']
         input_ids = tokenizer(prompt, return_tensors='pt')['input_ids'].to(model.device)  # Move input_ids to model's device
-        outputs = model.generate(input_ids, max_length=50)
+        attention_mask = torch.ones_like(input_ids)  # Set attention mask to all ones
+        outputs = model.generate(input_ids, attention_mask=attention_mask, max_length=50)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         if answer.lower() not in generated_text.lower():
             all_facts_recalled = False
@@ -192,7 +195,8 @@ def calculate_instance_accuracy(model, tokenizer, record):
 
     for question in multi_hop_questions:
         input_ids = tokenizer(question, return_tensors='pt')['input_ids'].to(model.device)  # Move input_ids to model's device
-        outputs = model.generate(input_ids, max_length=50)
+        attention_mask = torch.ones_like(input_ids)  # Set attention mask to all ones
+        outputs = model.generate(input_ids, attention_mask=attention_mask, max_length=50)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         if any(correct_answer.lower() in generated_text.lower() for correct_answer in correct_answers):
             correct_response = True
@@ -208,7 +212,8 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
     correct_responses = 0
     for question in questions:
         input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device)  # Move input_ids to model's device
-        outputs = model.generate(input_ids, max_length=50)
+        attention_mask = torch.ones_like(input_ids)  # Set attention mask to all ones
+        outputs = model.generate(input_ids, attention_mask=attention_mask, max_length=50)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
             correct_responses += 1
@@ -239,14 +244,11 @@ def test_batch_prediction(
         return_tensors="pt",
     ).to("cuda")
 
-    # Generate attention mask
-    attention_mask = torch.ones(prompt_tok['input_ids'].shape, dtype=torch.long).to(model.device)
-
     a_tok, b_tok = (tok(f" {n}")["input_ids"] for n in [target_new, target_true])
     choice_a_len, choice_b_len = (len(n) for n in [a_tok, b_tok])
 
     with torch.no_grad():
-        logits = model(input_ids=prompt_tok['input_ids'], attention_mask=attention_mask).logits
+        logits = model(**prompt_tok).logits
 
     probs = np.zeros((logits.size(0),), dtype=np.float32)
     targets_correct = []
@@ -355,32 +357,6 @@ def tfidf_similarity(text_a, text_b, vec):
     return (np.dot(encs[0], encs[1]) / norm(encs[0]) / norm(encs[1])).item()
 
 
-# Example usage
-if __name__ == "__main__":
-    # Load your model and tokenizer
-    model_name = "your-model-name"
-    model = AutoModelForCausalLM.from_pretrained(model_name)
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-    # Load other necessary components like snips and vec
-    snips = load_snips()
-    vec = load_vec()
-
-    # Example record
-    record = {
-        "subject": "Your subject",
-        "target_new": {"str": "Your new target"},
-        "target_true": {"str": "Your true target"},
-        # Add other necessary fields from the record
-    }
-
-    # Compute rewrite quality
-    rewrite_quality = compute_rewrite_quality_counterfact(model, tokenizer, record, snips, vec)
-    print("Rewrite Quality:", rewrite_quality)
-
-    # Compute MQuAKE rewrite quality
-    quake_quality = compute_rewrite_quality_mquake(model, tokenizer, record, snips, vec)
-    print("MQuAKE Quality:", quake_quality)
 
 
 

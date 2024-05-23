@@ -140,9 +140,7 @@ def compute_rewrite_quality_mquake(
     multi_hop_accuracy = calculate_multi_hop_accuracy(
         model, tokenizer, record['questions'], record['new_answer'], record.get('new_answer_alias', [])
     )
-    print(edit_success_rate,
-        instance_accuracy,
-        multi_hop_accuracy)
+
     return {
         'edit_success_rate': edit_success_rate,
         'instance_accuracy': instance_accuracy,
@@ -163,7 +161,8 @@ def edit_wise_success_rate(edits, model, tokenizer):
     for subject, prompt, _, target_new in edits:
         input_text = prompt.format(subject) + tokenizer.eos_token
         input_ids = tokenizer.encode(input_text, return_tensors="pt").to(model.device)  # Move input_ids to model's device
-        output_ids = model.generate(input_ids, max_length=input_ids.size(1) + 20)[0]
+        attention_mask = torch.ones_like(input_ids)  # Set attention mask to all ones
+        output_ids = model.generate(input_ids, attention_mask=attention_mask, max_length=input_ids.size(1) + 20)[0]
         generated_text = tokenizer.decode(output_ids, skip_special_tokens=True)
         if target_new.lower() in generated_text.lower():
             success_count += 1
@@ -355,6 +354,10 @@ def tfidf_similarity(text_a, text_b, vec):
     encs = vec.transform([text_a, text_b]).A
     norm = np.linalg.norm
     return (np.dot(encs[0], encs[1]) / norm(encs[0]) / norm(encs[1])).item()
+
+# 在这里添加你的评估代码
+
+
 
 
 

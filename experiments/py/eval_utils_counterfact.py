@@ -1,23 +1,14 @@
-"""
-Contains evaluation utilities for pytorch-based rewriting methods.
-To use, simply call `compute_rewrite_quality_counterfact` with the
-appropriate arguments, which returns a dictionary containing them.
-"""
-
 import typing
-from itertools import chain
-
 import nltk
 import numpy as np
 import scipy
 import torch
-from sklearn.feature_extraction.text import TfidfVectorizer
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
+from sklearn.feature_extraction.text import TfidfVectorizer
+from itertools import chain
 from dsets import AttributeSnippets
 from util.generate import generate_fast
 from util.perplexity import perplexity
-
 
 def compute_rewrite_quality_counterfact(
     model: AutoModelForCausalLM,
@@ -156,6 +147,7 @@ def compute_rewrite_quality_mquake(
         'multi_hop_accuracy': multi_hop_accuracy,
     }
 
+
 def edit_wise_success_rate(edits, model, tokenizer):
     """
     Calculate the success rate of recalling edited facts.
@@ -168,12 +160,13 @@ def edit_wise_success_rate(edits, model, tokenizer):
     success_count = 0
     for subject, prompt, _, target_new in edits:
         input_text = prompt.format(subject) + tokenizer.eos_token
-        input_ids = tokenizer.encode(input_text, return_tensors="pt")
+        input_ids = tokenizer.encode(input_text, return_tensors="pt").to(model.device)  # Move input_ids to model's device
         output_ids = model.generate(input_ids, max_length=input_ids.size(1) + 20)[0]
         generated_text = tokenizer.decode(output_ids, skip_special_tokens=True)
         if target_new.lower() in generated_text.lower():
             success_count += 1
     return success_count / len(edits)
+
 
 def calculate_instance_accuracy(model, tokenizer, record):
     """
@@ -183,7 +176,7 @@ def calculate_instance_accuracy(model, tokenizer, record):
     for fact in record['new_single_hops']:
         prompt = fact['cloze']
         answer = fact['answer']
-        input_ids = tokenizer(prompt, return_tensors='pt')['input_ids']
+        input_ids = tokenizer(prompt, return_tensors='pt')['input_ids'].to(model.device)  # Move input_ids to model's device
         outputs = model.generate(input_ids, max_length=50)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         if answer.lower() not in generated_text.lower():
@@ -198,7 +191,7 @@ def calculate_instance_accuracy(model, tokenizer, record):
     correct_response = False
 
     for question in multi_hop_questions:
-        input_ids = tokenizer(question, return_tensors='pt')['input_ids']
+        input_ids = tokenizer(question, return_tensors='pt')['input_ids'].to(model.device)  # Move input_ids to model's device
         outputs = model.generate(input_ids, max_length=50)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         if any(correct_answer.lower() in generated_text.lower() for correct_answer in correct_answers):
@@ -207,20 +200,20 @@ def calculate_instance_accuracy(model, tokenizer, record):
 
     return int(correct_response)
 
+
 def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, answer_aliases):
     """
     Calculate multi-hop accuracy for a set of questions.
     """
     correct_responses = 0
     for question in questions:
-        input_ids = tokenizer.encode(question, return_tensors="pt")
+        input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device)  # Move input_ids to model's device
         outputs = model.generate(input_ids, max_length=50)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
             correct_responses += 1
 
     return correct_responses / len(questions)
-
 
 
 def test_batch_prediction(
@@ -357,3 +350,5 @@ def tfidf_similarity(text_a, text_b, vec):
     encs = vec.transform([text_a, text_b]).A
     norm = np.linalg.norm
     return (np.dot(encs[0], encs[1]) / norm(encs[0]) / norm(encs[1])).item()
+
+

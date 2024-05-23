@@ -239,11 +239,14 @@ def test_batch_prediction(
         return_tensors="pt",
     ).to("cuda")
 
+    # Generate attention mask
+    attention_mask = torch.ones(prompt_tok['input_ids'].shape, dtype=torch.long).to(model.device)
+
     a_tok, b_tok = (tok(f" {n}")["input_ids"] for n in [target_new, target_true])
     choice_a_len, choice_b_len = (len(n) for n in [a_tok, b_tok])
 
     with torch.no_grad():
-        logits = model(**prompt_tok).logits
+        logits = model(input_ids=prompt_tok['input_ids'], attention_mask=attention_mask).logits
 
     probs = np.zeros((logits.size(0),), dtype=np.float32)
     targets_correct = []
@@ -350,5 +353,34 @@ def tfidf_similarity(text_a, text_b, vec):
     encs = vec.transform([text_a, text_b]).A
     norm = np.linalg.norm
     return (np.dot(encs[0], encs[1]) / norm(encs[0]) / norm(encs[1])).item()
+
+
+# Example usage
+if __name__ == "__main__":
+    # Load your model and tokenizer
+    model_name = "your-model-name"
+    model = AutoModelForCausalLM.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    # Load other necessary components like snips and vec
+    snips = load_snips()
+    vec = load_vec()
+
+    # Example record
+    record = {
+        "subject": "Your subject",
+        "target_new": {"str": "Your new target"},
+        "target_true": {"str": "Your true target"},
+        # Add other necessary fields from the record
+    }
+
+    # Compute rewrite quality
+    rewrite_quality = compute_rewrite_quality_counterfact(model, tokenizer, record, snips, vec)
+    print("Rewrite Quality:", rewrite_quality)
+
+    # Compute MQuAKE rewrite quality
+    quake_quality = compute_rewrite_quality_mquake(model, tokenizer, record, snips, vec)
+    print("MQuAKE Quality:", quake_quality)
+
 
 

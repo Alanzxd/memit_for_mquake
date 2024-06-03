@@ -145,7 +145,7 @@ def compute_rewrite_quality_mquake(
         'multi_hop_accuracy': multi_hop_accuracy,
     }
 
-def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, answer_aliases, batch_size=2):
+def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, answer_aliases):
     """
     Calculate multi-hop accuracy for a set of questions.
 
@@ -154,59 +154,29 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
     :param questions: List of multi-hop questions.
     :param correct_answer: Correct answer to the questions.
     :param answer_aliases: List of aliases for the correct answer.
-    :param batch_size: Number of questions to process at once.
     :return: Multi-hop accuracy.
     """
     correct_responses = 0
-    for i in range(0, len(questions), batch_size):
-        batch_questions = questions[i:i + batch_size]
-        try:
-            input_ids = tokenizer(batch_questions, return_tensors="pt", padding=True, truncation=True).input_ids.to(model.device)  # Move input_ids to model's device
+    for question in questions:
+        input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device).double()  # Move input_ids to model's device with double precision
 
-            # Check input tensor dimensions
-            print(f"Input IDs shape: {input_ids.shape}")
+        # Check input tensor dimensions
+        print(f"Input IDs shape: {input_ids.shape}")
 
-            # Ensure input size is within model limits
-            if input_ids.size(1) > model.config.max_position_embeddings:
-                print(f"Input size {input_ids.size(1)} exceeds max position embeddings {model.config.max_position_embeddings}. Skipping.")
-                continue
+        # Ensure input size is within model limits
+        if input_ids.size(1) > model.config.max_position_embeddings:
+            print(f"Input size {input_ids.size(1)} exceeds max position embeddings {model.config.max_position_embeddings}. Skipping.")
+            continue
 
-            outputs = model.generate(input_ids, max_length=50, pad_token_id=tokenizer.eos_token_id)
-            generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
+        outputs = model.generate(input_ids, max_length=50, pad_token_id=tokenizer.eos_token_id)
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-            # Debugging information
-            for question, generated_text in zip(batch_questions, generated_texts):
-                print(f"Question: {question}")
-                print(f"Generated Text: {generated_text}")
+        # Debugging information
+        print(f"Question: {question}")
+        print(f"Generated Text: {generated_text}")
 
-                if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
-                    correct_responses += 1
-
-        except Exception as e:
-            print(f"Error during generation on GPU: {e}")
-            print("Switching to CPU for this batch.")
-
-            # 尝试在 CPU 上运行
-            model.cpu()
-            input_ids = input_ids.cpu()
-            try:
-                outputs = model.generate(input_ids, max_length=50, pad_token_id=tokenizer.eos_token_id)
-                generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
-
-                # Debugging information
-                for question, generated_text in zip(batch_questions, generated_texts):
-                    print(f"Question (CPU): {question}")
-                    print(f"Generated Text (CPU): {generated_text}")
-
-                    if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
-                        correct_responses += 1
-
-            except Exception as e_cpu:
-                # 调试信息：打印在 CPU 上的异常信息
-                print(f"Error during generation on CPU: {e_cpu}")
-
-            # 将模型移回 GPU
-            model.to('cuda')
+        if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
+            correct_responses += 1
 
     return correct_responses / len(questions)
 

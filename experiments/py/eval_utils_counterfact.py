@@ -165,7 +165,7 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
             print(f"Input IDs: {input_ids}")
             print(f"Attention Mask: {attention_mask}")
 
-            outputs = model.generate(input_ids, attention_mask=attention_mask, max_length=50, pad_token_id=tokenizer.eos_token_id)
+            outputs = model.generate(input_ids, attention_mask=attention_mask, max_length=100)
             generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
             # 调试信息：打印问题和生成的文本

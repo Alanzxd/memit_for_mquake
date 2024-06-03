@@ -168,7 +168,7 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
             print(f"Input size {input_ids.size(1)} exceeds max position embeddings {model.config.max_position_embeddings}. Skipping.")
             continue
 
-        outputs = model.generate(input_ids, max_length=50, pad_token_id=tokenizer.eos_token_id)
+        outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
         # Debugging information

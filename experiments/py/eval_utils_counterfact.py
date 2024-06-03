@@ -159,7 +159,18 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
     for question in questions:
         input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device)  # Move input_ids to model's device
         attention_mask = torch.ones_like(input_ids)  # Set attention mask to all ones
-        outputs = model.generate(input_ids, attention_mask=attention_mask, max_length=50, pad_token_id=tokenizer.eos_token_id)
+        
+        # 调试信息：打印 input_ids 和 attention_mask
+        print(f"Input IDs: {input_ids}")
+        print(f"Attention Mask: {attention_mask}")
+
+        try:
+            outputs = model.generate(input_ids, attention_mask=attention_mask, max_length=50, pad_token_id=tokenizer.eos_token_id)
+        except Exception as e:
+            # 调试信息：打印异常信息
+            print(f"Error during generation: {e}")
+            continue
+
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         
         # 调试信息：打印问题和生成的文本

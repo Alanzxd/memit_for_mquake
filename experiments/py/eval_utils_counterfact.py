@@ -137,6 +137,9 @@ def compute_rewrite_quality_mquake(
         model, tokenizer, record['questions'], record['new_answer'], record.get('new_answer_alias', [])
     )
 
+    # 打印 multi-hop accuracy
+    print(f"Multi-hop Accuracy: {multi_hop_accuracy}")
+
     return {
         'multi_hop_accuracy': multi_hop_accuracy,
     }
@@ -162,6 +165,7 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
             correct_responses += 1
 
     return correct_responses / len(questions)
+
 
 
 

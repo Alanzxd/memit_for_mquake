@@ -112,6 +112,10 @@ def compute_rewrite_quality_counterfact(
     return ret
 
 
+import torch
+import typing
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
 def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
@@ -120,93 +124,33 @@ def compute_rewrite_quality_mquake(
     vec: typing.Optional[TfidfVectorizer] = None
 ) -> typing.Dict:
     """
-    Evaluates the rewritten model on a MQuAKE dataset record.
+    Evaluates the rewritten model on a MQuAKE dataset record for multi-hop accuracy.
 
     :param model: The language model.
     :param tokenizer: The tokenizer.
     :param record: A single record from the MQuAKE dataset.
     :param snips: Optional, attribute snippets for reference texts.
     :param vec: Optional, a TF-IDF vectorizer.
-    :return: A dictionary with evaluation metrics.
+    :return: A dictionary with multi-hop accuracy.
     """
-    # Edit-wise Success Rate
-    edits = [(fact['subject'], fact['prompt'], fact['target_true']['str'], fact['target_new']['str']) for fact in record['requested_rewrite']]
-    edit_success_rate = edit_wise_success_rate(edits, model, tokenizer)
-
-    # Instance-wise Accuracy
-    instance_accuracy = calculate_instance_accuracy(model, tokenizer, record)
-
-    # Multi-hop Accuracy
     multi_hop_accuracy = calculate_multi_hop_accuracy(
         model, tokenizer, record['questions'], record['new_answer'], record.get('new_answer_alias', [])
     )
 
     return {
-        'edit_success_rate': edit_success_rate,
-        'instance_accuracy': instance_accuracy,
         'multi_hop_accuracy': multi_hop_accuracy,
     }
-
-
-def edit_wise_success_rate(edits, model, tokenizer):
-    """
-    Calculate the success rate of recalling edited facts.
-
-    :param edits: A list of edits.
-    :param model: The language model.
-    :param tokenizer: The tokenizer.
-    :return: Success rate.
-    """
-    success_count = 0
-    for subject, prompt, _, target_new in edits:
-        input_text = prompt.format(subject) + tokenizer.eos_token
-        input_ids = tokenizer.encode(input_text, return_tensors="pt").to(model.device)  # Move input_ids to model's device
-        attention_mask = torch.ones_like(input_ids)  # Set attention mask to all ones
-        output_ids = model.generate(input_ids, attention_mask=attention_mask, max_length=input_ids.size(1) + 20)[0]
-        generated_text = tokenizer.decode(output_ids, skip_special_tokens=True)
-        if target_new.lower() in generated_text.lower():
-            success_count += 1
-    return success_count / len(edits)
-
-
-def calculate_instance_accuracy(model, tokenizer, record):
-    """
-    Calculate the instance-wise accuracy for a MQuAKE record.
-    """
-    all_facts_recalled = True
-    for fact in record['new_single_hops']:
-        prompt = fact['cloze']
-        answer = fact['answer']
-        input_ids = tokenizer(prompt, return_tensors='pt')['input_ids'].to(model.device)  # Move input_ids to model's device
-        attention_mask = torch.ones_like(input_ids)  # Set attention mask to all ones
-        outputs = model.generate(input_ids, attention_mask=attention_mask, max_length=50)
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        if answer.lower() not in generated_text.lower():
-            all_facts_recalled = False
-            break
-
-    if not all_facts_recalled:
-        return 0
-
-    correct_answers = [record['new_answer']] + record.get('new_answer_alias', [])
-    multi_hop_questions = record['questions']
-    correct_response = False
-
-    for question in multi_hop_questions:
-        input_ids = tokenizer(question, return_tensors='pt')['input_ids'].to(model.device)  # Move input_ids to model's device
-        attention_mask = torch.ones_like(input_ids)  # Set attention mask to all ones
-        outputs = model.generate(input_ids, attention_mask=attention_mask, max_length=50)
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        if any(correct_answer.lower() in generated_text.lower() for correct_answer in correct_answers):
-            correct_response = True
-            break
-
-    return int(correct_response)
-
 
 def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, answer_aliases):
     """
     Calculate multi-hop accuracy for a set of questions.
+
+    :param model: The language model.
+    :param tokenizer: The tokenizer.
+    :param questions: List of multi-hop questions.
+    :param correct_answer: Correct answer to the questions.
+    :param answer_aliases: List of aliases for the correct answer.
+    :return: Multi-hop accuracy.
     """
     correct_responses = 0
     for question in questions:
@@ -218,6 +162,7 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
             correct_responses += 1
 
     return correct_responses / len(questions)
+
 
 
 def test_batch_prediction(

@@ -159,12 +159,18 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
     for question in questions:
         input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device)  # Move input_ids to model's device
         attention_mask = torch.ones_like(input_ids)  # Set attention mask to all ones
-        outputs = model.generate(input_ids, attention_mask=attention_mask, max_length=50)
+        outputs = model.generate(input_ids, attention_mask=attention_mask, max_length=50, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        
+        # 调试信息：打印问题和生成的文本
+        print(f"Question: {question}")
+        print(f"Generated Text: {generated_text}")
+        
         if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
             correct_responses += 1
 
     return correct_responses / len(questions)
+
 
 
 

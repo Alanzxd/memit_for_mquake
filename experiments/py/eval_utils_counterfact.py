@@ -158,7 +158,7 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
     """
     correct_responses = 0
     for question in questions:
-        input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device).double()  # Move input_ids to model's device with double precision
+        input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device)  # Move input_ids to model's device with double precision
 
         # Check input tensor dimensions
         print(f"Input IDs shape: {input_ids.shape}")

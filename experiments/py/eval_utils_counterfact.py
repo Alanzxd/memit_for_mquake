@@ -157,45 +157,30 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
     """
     correct_responses = 0
     for question in questions:
-        input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device)  # Move input_ids to model's device
-        attention_mask = torch.ones_like(input_ids)  # Set attention mask to all ones
-
-        # 调试信息：打印 input_ids 和 attention_mask
-        print(f"Input IDs: {input_ids}")
-        print(f"Attention Mask: {attention_mask}")
-
         try:
+            input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device)  # Move input_ids to model's device
+            attention_mask = torch.ones_like(input_ids).to(model.device)  # Set attention mask to all ones
+
+            # 调试信息：打印 input_ids 和 attention_mask
+            print(f"Input IDs: {input_ids}")
+            print(f"Attention Mask: {attention_mask}")
+
             outputs = model.generate(input_ids, attention_mask=attention_mask, max_length=50, pad_token_id=tokenizer.eos_token_id)
             generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-            
+
             # 调试信息：打印问题和生成的文本
             print(f"Question: {question}")
             print(f"Generated Text: {generated_text}")
-            
+
             if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
                 correct_responses += 1
+
         except Exception as e:
             # 调试信息：打印异常信息
             print(f"Error during generation: {e}")
-            # 尝试在 CPU 上运行
-            model.cpu()
-            input_ids = input_ids.cpu()
-            attention_mask = attention_mask.cpu()
-            try:
-                outputs = model.generate(input_ids, attention_mask=attention_mask, max_length=50, pad_token_id=tokenizer.eos_token_id)
-                generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-                
-                # 调试信息：打印问题和生成的文本
-                print(f"Question (CPU): {question}")
-                print(f"Generated Text (CPU): {generated_text}")
-                
-                if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
-                    correct_responses += 1
-            except Exception as e_cpu:
-                # 调试信息：打印在 CPU 上的异常信息
-                print(f"Error during generation on CPU: {e_cpu}")
 
     return correct_responses / len(questions)
+
 
 
 

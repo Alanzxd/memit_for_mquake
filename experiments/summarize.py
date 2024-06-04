@@ -13,13 +13,13 @@ def main(
     first_n_cases=None,
     get_uncompressed=False,
     abs_path=False,
-):  # runs = None -> all runs
+):
     summaries = []
     uncompressed = []
 
-    total_correct = 0
+    total_correct_cases = 0
     total_cases = 0
-    total_partial_correct = 0
+    total_correct_questions = 0
 
     for run_dir in (RESULTS_DIR / dir_name if not abs_path else dir_name).iterdir():
         # Skip if we're not interested
@@ -51,9 +51,8 @@ def main(
                 cur_sum["multi_hop_accuracy"].append(multi_hop_acc)
                 total_cases += 1
                 if multi_hop_acc > 0:
-                    total_correct += 1
-                if any(value > 0 for value in cur_sum["multi_hop_accuracy"]):
-                    total_partial_correct += 1
+                    total_correct_cases += 1
+                total_correct_questions += multi_hop_acc * 3
 
         if len(cur_sum) == 0:
             continue
@@ -76,8 +75,8 @@ def main(
         pprint(cur_sum)
         summaries.append(cur_sum)
 
-    print(f"Total Multi-hop Accuracy: {total_correct / total_cases if total_cases > 0 else 0}")
-    print(f"Total Partial Correct Cases: {total_partial_correct}")
+    print(f"Total Multi-hop Accuracy (per case): {total_correct_cases / total_cases if total_cases > 0 else 0}")
+    print(f"Total Multi-hop Accuracy (per question): {total_correct_questions / (total_cases * 3) if total_cases > 0 else 0}")
 
     return uncompressed if get_uncompressed else summaries
 
@@ -110,4 +109,3 @@ if __name__ == "__main__":
         None if args.runs is None else args.runs.split(","),
         args.first_n_cases,
     )
-

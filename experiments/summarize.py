@@ -4,7 +4,6 @@ from pprint import pprint
 from typing import List, Optional
 
 import numpy as np
-from scipy.stats import hmean
 
 from util.globals import *
 
@@ -46,13 +45,14 @@ def main(
             if "time" in data:
                 cur_sum["time"].append(data["time"])
 
-            multi_hop_acc = data.get('multi_hop_accuracy', None)
+            post_data = data.get('post', {})
+            multi_hop_acc = post_data.get('multi_hop_accuracy', None)
             if multi_hop_acc is not None:
                 cur_sum["multi_hop_accuracy"].append(multi_hop_acc)
                 total_cases += 1
                 if multi_hop_acc > 0:
                     total_correct += 1
-                if any(value > 0 for value in data['questions']):
+                if any(value > 0 for value in cur_sum["multi_hop_accuracy"]):
                     total_partial_correct += 1
 
         if len(cur_sum) == 0:

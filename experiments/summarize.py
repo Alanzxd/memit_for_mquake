@@ -8,7 +8,6 @@ from scipy.stats import hmean
 
 from util.globals import *
 
-
 def main(
     dir_name,
     runs: Optional[List],
@@ -18,6 +17,10 @@ def main(
 ):  # runs = None -> all runs
     summaries = []
     uncompressed = []
+
+    total_correct = 0
+    total_cases = 0
+    total_partial_correct = 0
 
     for run_dir in (RESULTS_DIR / dir_name if not abs_path else dir_name).iterdir():
         # Skip if we're not interested
@@ -34,6 +37,7 @@ def main(
                     data = json.load(f)
             except json.JSONDecodeError:
                 print(f"Could not decode {case_file} due to format error; skipping.")
+                continue
 
             case_id = data["case_id"]
             if first_n_cases is not None and case_id >= first_n_cases:
@@ -42,68 +46,14 @@ def main(
             if "time" in data:
                 cur_sum["time"].append(data["time"])
 
-            for prefix in ["pre", "post"]:
-                # Probability metrics for which new should be lower (better) than true
-                for key in ["rewrite_prompts_probs", "paraphrase_prompts_probs"]:
-                    if prefix not in data or key not in data[prefix]:
-                        continue
-
-                    sum_key_discrete = f"{prefix}_{key.split('_')[0]}_success"
-                    sum_key_cont = f"{prefix}_{key.split('_')[0]}_diff"
-
-                    cur_sum[sum_key_discrete].append(
-                        np.mean(
-                            [
-                                x["target_true"] > x["target_new"]
-                                for x in data[prefix][key]
-                            ]
-                        )
-                    )
-                    cur_sum[sum_key_cont].append(
-                        np.mean(
-                            [
-                                np.exp(-x["target_new"]) - np.exp(-x["target_true"])
-                                for x in data[prefix][key]
-                            ]
-                        )
-                    )
-
-                # Probability metrics for which true should be lower (better) than new
-                sum_key_discrete = f"{prefix}_neighborhood_success"
-                sum_key_cont = f"{prefix}_neighborhood_diff"
-                key = "neighborhood_prompts_probs"
-                if prefix in data and key in data[prefix]:
-                    cur_sum[sum_key_discrete].append(
-                        np.mean(
-                            [
-                                x["target_true"] < x["target_new"]
-                                for x in data[prefix][key]
-                            ]
-                        )
-                    )
-                    cur_sum[sum_key_cont].append(
-                        np.mean(
-                            [
-                                np.exp(-x["target_true"]) - np.exp(-x["target_new"])
-                                for x in data[prefix][key]
-                            ]
-                        )
-                    )
-
-                # Accuracy-based evaluation metrics
-                for key in ["rewrite", "paraphrase", "neighborhood"]:
-                    sum_key = f"{prefix}_{key}_acc"
-                    key = f"{key}_prompts_correct"
-
-                    if prefix not in data or key not in data[prefix]:
-                        continue
-
-                    cur_sum[sum_key].append(np.mean(data[prefix][key]))
-
-                # Generation metrics that can be directly averaged
-                for key in ["ngram_entropy", "reference_score", "essence_score"]:
-                    if prefix in data and key in data[prefix]:
-                        cur_sum[f"{prefix}_{key}"].append(data[prefix][key])
+            multi_hop_acc = data.get('multi_hop_accuracy', None)
+            if multi_hop_acc is not None:
+                cur_sum["multi_hop_accuracy"].append(multi_hop_acc)
+                total_cases += 1
+                if multi_hop_acc > 0:
+                    total_correct += 1
+                if any(value > 0 for value in data['questions']):
+                    total_partial_correct += 1
 
         if len(cur_sum) == 0:
             continue
@@ -122,37 +72,12 @@ def main(
                 # Constant multiplication scales linearly with mean and stddev
                 cur_sum[k] = tuple(np.around(z * 100, 2) for z in v)
 
-        for prefix in ["pre", "post"]:
-            for k_efficacy, k_generalization, k_specificity in [
-                (
-                    f"{prefix}_rewrite_success",
-                    f"{prefix}_paraphrase_success",
-                    f"{prefix}_neighborhood_success",
-                ),
-                # (
-                #     f"{prefix}_rewrite_acc",
-                #     f"{prefix}_paraphrase_acc",
-                #     f"{prefix}_neighborhood_acc",
-                # ),
-            ]:
-                if all(k in cur_sum for k in [k_efficacy, k_generalization, k_specificity]):
-                    hmean_list = [
-                        cur_sum[k_efficacy][0],
-                        cur_sum[k_generalization][0],
-                        cur_sum[k_specificity][0],
-                    ]
-
-                    # if f"{prefix}_ngram_entropy" in cur_sum:
-                    #     hmean_list.append(2 ** (cur_sum[f"{prefix}_ngram_entropy"][0] / 100))
-                    # if f"{prefix}_reference_score" in cur_sum:
-                    #     hmean_list.append(cur_sum[f"{prefix}_reference_score"][0])
-
-                    cur_sum[f"{prefix}_score"] = (hmean(hmean_list), np.nan)
-                    break
-
         cur_sum.update(metadata)
         pprint(cur_sum)
         summaries.append(cur_sum)
+
+    print(f"Total Multi-hop Accuracy: {total_correct / total_cases if total_cases > 0 else 0}")
+    print(f"Total Partial Correct Cases: {total_partial_correct}")
 
     return uncompressed if get_uncompressed else summaries
 
@@ -185,3 +110,4 @@ if __name__ == "__main__":
         None if args.runs is None else args.runs.split(","),
         args.first_n_cases,
     )
+

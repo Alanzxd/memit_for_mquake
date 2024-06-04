@@ -17,9 +17,10 @@ def main(
     summaries = []
     uncompressed = []
 
-    total_correct_cases = 0
-    total_cases = 0
-    total_correct_questions = 0
+    total_correct_cases_any = 0  # 记录至少有一个问题正确的案例数
+    total_correct_cases_all = 0  # 记录所有问题都正确的案例数
+    total_cases = 0  # 记录总案例数
+    total_correct_questions = 0  # 记录总正确问题数
 
     for run_dir in (RESULTS_DIR / dir_name if not abs_path else dir_name).iterdir():
         # Skip if we're not interested
@@ -51,7 +52,9 @@ def main(
                 cur_sum["multi_hop_accuracy"].append(multi_hop_acc)
                 total_cases += 1
                 if multi_hop_acc > 0:
-                    total_correct_cases += 1
+                    total_correct_cases_any += 1
+                    if multi_hop_acc == 1:
+                        total_correct_cases_all += 1
                 total_correct_questions += multi_hop_acc * 3
 
         if len(cur_sum) == 0:
@@ -75,7 +78,9 @@ def main(
         pprint(cur_sum)
         summaries.append(cur_sum)
 
-    print(f"Total Multi-hop Accuracy (per case): {total_correct_cases / total_cases if total_cases > 0 else 0}")
+    # 计算并输出各种多跳准确率
+    print(f"Total Multi-hop Accuracy (per case, any question correct): {total_correct_cases_any / total_cases if total_cases > 0 else 0}")
+    print(f"Total Multi-hop Accuracy (per case, all questions correct): {total_correct_cases_all / total_cases if total_cases > 0 else 0}")
     print(f"Total Multi-hop Accuracy (per question): {total_correct_questions / (total_cases * 3) if total_cases > 0 else 0}")
 
     return uncompressed if get_uncompressed else summaries
@@ -109,3 +114,4 @@ if __name__ == "__main__":
         None if args.runs is None else args.runs.split(","),
         args.first_n_cases,
     )
+

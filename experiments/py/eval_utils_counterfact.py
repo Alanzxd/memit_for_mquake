@@ -135,7 +135,7 @@ def compute_rewrite_quality_mquake(
     :param vec: Optional, a TF-IDF vectorizer.
     :return: A dictionary with evaluation metrics.
     """
-    # Calculate multi-hub accuracy
+    # Calculate multi-hop accuracy
     multi_hop_accuracy, generated_answers = calculate_multi_hop_accuracy(
         model, tokenizer, record['questions'], record['new_answer'], record.get('new_answer_alias', [])
     )
@@ -150,7 +150,7 @@ def compute_rewrite_quality_mquake(
         model, tokenizer, record['requested_rewrite']
     )
 
-    # 打印 multi-hub accuracy
+    # 打印 multi-hop accuracy
     print(f"Multi-hop Accuracy: {multi_hop_accuracy}")
     print(f"Edit-wise Success Rate: {edit_success_rate}")
     print(f"Instance-wise Accuracy: {instance_accuracy}")
@@ -166,14 +166,14 @@ def compute_rewrite_quality_mquake(
 
 def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, answer_aliases):
     """
-    Calculate multi-hub accuracy for a set of questions.
+    Calculate multi-hop accuracy for a set of questions.
 
     :param model: The language model.
     :param tokenizer: The tokenizer.
-    :param questions: List of multi-hub questions.
+    :param questions: List of multi-hop questions.
     :param correct_answer: Correct answer to the questions.
     :param answer_aliases: List of aliases for the correct answer.
-    :return: Multi-hub accuracy and generated answers.
+    :return: Multi-hop accuracy and generated answers.
     """
     correct_responses = 0
     generated_answers = []
@@ -195,8 +195,8 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
         outputs = model.generate(input_ids, max_length=50, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         
-        # 获取生成文本的第二行作为回答
-        generated_answer = generated_text.split("\n")[1] if len(generated_text.split("\n")) > 1 else generated_text.split("\n")[0]
+        # 获取生成文本的第三行作为回答
+        generated_answer = generated_text.split("\n")[2] if len(generated_text.split("\n")) > 2 else generated_text.split("\n")[0]
         generated_answers.append(generated_answer)
 
         # Debugging information
@@ -260,6 +260,7 @@ def calculate_instance_accuracy(model, tokenizer, requested_rewrite):
             break
 
     return 1 if all_facts_recalled else 0
+
 
 
 

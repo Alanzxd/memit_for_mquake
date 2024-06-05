@@ -115,17 +115,7 @@ def compute_rewrite_quality_counterfact(
 import torch
 import typing
 from transformers import AutoModelForCausalLM, AutoTokenizer
-import os
-import subprocess
 import numpy as np
-
-def setup_cuda_environment():
-    """Sets up CUDA environment by clearing CUDA cache and setting necessary environment variables."""
-    # 清空CUDA缓存
-    cache_dir = os.path.expanduser("~/.cache/torch/kernels/")
-    subprocess.run(["rm", "-rf", f"{cache_dir}*"], check=True)
-    # 禁用并行处理以避免死锁
-    os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
@@ -145,8 +135,6 @@ def compute_rewrite_quality_mquake(
     :param vec: Optional, a TF-IDF vectorizer.
     :return: A dictionary with evaluation metrics.
     """
-    # 设置并清空CUDA缓存
-    setup_cuda_environment()
     # Calculate multi-hop accuracy
     multi_hop_accuracy, generated_answers = calculate_multi_hop_accuracy(
         model, tokenizer, record['questions'], record['new_answer'], record.get('new_answer_alias', [])
@@ -207,7 +195,7 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
         outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
-        # 获取生成文本的回答部分，取第三项
+        # 获取生成文本的回答部分
         generated_answer = generated_text.split("\n")[2] if len(generated_text.split("\n")) > 2 else generated_text
         generated_answers.append(generated_answer)
 

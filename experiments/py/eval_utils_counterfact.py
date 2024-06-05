@@ -119,12 +119,13 @@ import os
 import subprocess
 import numpy as np
 
-def setup_and_clear_cuda_cache():
-    """Sets up a unique CUDA cache directory for the current process and clears it."""
-    cache_dir = f"/tmp/torch_kernels_cache_{os.getpid()}"
-    os.environ["TORCH_CUDA_CACHE_PATH"] = cache_dir
-    os.makedirs(cache_dir, exist_ok=True)
-    subprocess.run(["rm", "-rf", f"{cache_dir}/*"], check=True)
+def setup_cuda_environment():
+    """Sets up CUDA environment by clearing CUDA cache and setting necessary environment variables."""
+    # 清空CUDA缓存
+    cache_dir = os.path.expanduser("~/.cache/torch/kernels/")
+    subprocess.run(["rm", "-rf", f"{cache_dir}*"], check=True)
+    # 禁用并行处理以避免死锁
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
@@ -145,8 +146,7 @@ def compute_rewrite_quality_mquake(
     :return: A dictionary with evaluation metrics.
     """
     # 设置并清空CUDA缓存
-    setup_and_clear_cuda_cache()
-
+    setup_cuda_environment()
     # Calculate multi-hop accuracy
     multi_hop_accuracy, generated_answers = calculate_multi_hop_accuracy(
         model, tokenizer, record['questions'], record['new_answer'], record.get('new_answer_alias', [])
@@ -272,6 +272,9 @@ def calculate_instance_accuracy(model, tokenizer, requested_rewrite):
             break
 
     return 1 if all_facts_recalled else 0
+
+
+
 
 
 

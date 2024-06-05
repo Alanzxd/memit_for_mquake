@@ -194,16 +194,16 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
 
         outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        
-        # 获取生成文本的第三行作为回答
-        generated_answer = generated_text.split("\n")[2] if len(generated_text.split("\n")) > 2 else generated_text.split("\n")[0]
+
+        # 获取生成文本的回答部分
+        generated_answer = generated_text.split("\n", 1)[2] if "\n" in generated_text else generated_text
         generated_answers.append(generated_answer)
 
         # Debugging information
         print(f"Question: {question}")
         print(f"Generated Text: {generated_answer}")
 
-        if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
+        if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
             correct_responses += 1
 
     return correct_responses / len(questions), generated_answers

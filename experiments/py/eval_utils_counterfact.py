@@ -192,15 +192,16 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
             print(f"Input size {input_ids.size(1)} exceeds max position embeddings {model.config.max_position_embeddings}. Skipping.")
             continue
 
-        outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
+        outputs = model.generate(input_ids, max_length=50, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        generated_answers.append(generated_text)
+        generated_answer = generated_text.split("\n")[0]  # 获取第一行作为回答
+        generated_answers.append(generated_answer)
 
         # Debugging information
         print(f"Question: {question}")
-        print(f"Generated Text: {generated_text}")
+        print(f"Generated Text: {generated_answer}")
 
-        if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
+        if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
             correct_responses += 1
 
     return correct_responses / len(questions), generated_answers
@@ -223,7 +224,7 @@ def calculate_edit_success_rate(model, tokenizer, requested_rewrite):
         input_text = prompt.format(subject)
         input_ids = tokenizer.encode(input_text, return_tensors="pt").to(model.device).long()
 
-        outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
+        outputs = model.generate(input_ids, max_length=50, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
         if target_new.lower() in generated_text.lower():
@@ -249,7 +250,7 @@ def calculate_instance_accuracy(model, tokenizer, requested_rewrite):
         input_text = prompt.format(subject)
         input_ids = tokenizer.encode(input_text, return_tensors="pt").to(model.device).long()
 
-        outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
+        outputs = model.generate(input_ids, max_length=50, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
         if target_new.lower() not in generated_text.lower():
@@ -257,7 +258,6 @@ def calculate_instance_accuracy(model, tokenizer, requested_rewrite):
             break
 
     return 1 if all_facts_recalled else 0
-
 
 
 

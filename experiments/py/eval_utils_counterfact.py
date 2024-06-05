@@ -193,7 +193,7 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
             continue
 
         outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         generated_answers.append(generated_text)
 
         # Debugging information
@@ -224,7 +224,7 @@ def calculate_edit_success_rate(model, tokenizer, requested_rewrite):
         input_ids = tokenizer.encode(input_text, return_tensors="pt").to(model.device).long()
 
         outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
         if target_new.lower() in generated_text.lower():
             success_count += 1
@@ -250,7 +250,7 @@ def calculate_instance_accuracy(model, tokenizer, requested_rewrite):
         input_ids = tokenizer.encode(input_text, return_tensors="pt").to(model.device).long()
 
         outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
         if target_new.lower() not in generated_text.lower():
             all_facts_recalled = False

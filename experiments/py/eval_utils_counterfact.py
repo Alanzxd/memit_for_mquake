@@ -135,22 +135,11 @@ def compute_rewrite_quality_mquake(
     :param vec: Optional, a TF-IDF vectorizer.
     :return: A dictionary with evaluation metrics.
     """
-    # Calculate multi-hop accuracy
-    multi_hop_accuracy, generated_answers = calculate_multi_hop_accuracy(
-        model, tokenizer, record['questions'], record['new_answer'], record.get('new_answer_alias', [])
+    multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers = calculate_metrics(
+        model, tokenizer, record
     )
 
-    # Calculate edit-wise success rate
-    edit_success_rate = calculate_edit_success_rate(
-        model, tokenizer, record['requested_rewrite']
-    )
-
-    # Calculate instance-wise accuracy
-    instance_accuracy = calculate_instance_accuracy(
-        model, tokenizer, record['requested_rewrite']
-    )
-
-    # 打印 multi-hop accuracy
+    # 打印各个指标
     print(f"Multi-hop Accuracy: {multi_hop_accuracy}")
     print(f"Edit-wise Success Rate: {edit_success_rate}")
     print(f"Instance-wise Accuracy: {instance_accuracy}")
@@ -164,21 +153,30 @@ def compute_rewrite_quality_mquake(
         'generated_answers': generated_answers,
     }
 
-def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, answer_aliases):
+def calculate_metrics(
+    model: AutoModelForCausalLM,
+    tokenizer: AutoTokenizer,
+    record: dict
+):
     """
-    Calculate multi-hop accuracy for a set of questions.
+    Calculate multi-hop accuracy, edit-wise success rate, and instance-wise accuracy.
 
     :param model: The language model.
     :param tokenizer: The tokenizer.
-    :param questions: List of multi-hop questions.
-    :param correct_answer: Correct answer to the questions.
-    :param answer_aliases: List of aliases for the correct answer.
-    :return: Multi-hop accuracy and generated answers.
+    :param record: A single record from the MQuAKE dataset.
+    :return: Multi-hop accuracy, edit-wise success rate, instance-wise accuracy, and generated answers.
     """
     correct_responses = 0
+    success_count = 0
+    all_facts_recalled = True
     generated_answers = []
 
-    for question in questions:
+    questions = record['questions']
+    correct_answer = record['new_answer']
+    answer_aliases = record.get('new_answer_alias', [])
+    requested_rewrite = record['requested_rewrite']
+
+    for question in questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
         input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device)
 
         # 确保 input_ids 是 Long 类型
@@ -195,71 +193,32 @@ def calculate_multi_hop_accuracy(model, tokenizer, questions, correct_answer, an
         outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
-        # 获取生成文本的回答部分
-        generated_answer = generated_text.split("\n")[2] if len(generated_text.split("\n")) > 2 else generated_text
-        generated_answers.append(generated_answer)
+        # 获取生成文本的回答部分，针对 multi-hop accuracy
+        if question in questions:
+            generated_answer = generated_text.split("\n")[2] if len(generated_text.split("\n")) > 2 else generated_text
+            generated_answers.append(generated_answer)
 
-        # Debugging information
-        print(f"Question: {question}")
-        print(f"Generated Text: {generated_answer}")
+            # Debugging information
+            print(f"Question: {question}")
+            print(f"Generated Text: {generated_answer}")
 
-        if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
-            correct_responses += 1
+            if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
+                correct_responses += 1
 
-    return correct_responses / len(questions), generated_answers
+        # 针对 edit-wise success rate 和 instance-wise accuracy
+        if question not in questions:
+            target_new = [rw['target_new']['str'] for rw in requested_rewrite if rw['prompt'].format(rw['subject']) == question][0]
 
-def calculate_edit_success_rate(model, tokenizer, requested_rewrite):
-    """
-    Calculate edit-wise success rate.
+            if target_new.lower() in generated_text.lower():
+                success_count += 1
+            else:
+                all_facts_recalled = False
 
-    :param model: The language model.
-    :param tokenizer: The tokenizer.
-    :param requested_rewrite: List of requested rewrites.
-    :return: Edit-wise success rate.
-    """
-    success_count = 0
+    multi_hop_accuracy = correct_responses / len(questions)
+    edit_success_rate = success_count / len(requested_rewrite)
+    instance_accuracy = 1 if all_facts_recalled else 0
 
-    for rewrite in requested_rewrite:
-        subject = rewrite['subject']
-        prompt = rewrite['prompt']
-        target_new = rewrite['target_new']['str']
-        input_text = prompt.format(subject)
-        input_ids = tokenizer.encode(input_text, return_tensors="pt").to(model.device).long()
-
-        outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-
-        if target_new.lower() in generated_text.lower():
-            success_count += 1
-
-    return success_count / len(requested_rewrite)
-
-def calculate_instance_accuracy(model, tokenizer, requested_rewrite):
-    """
-    Calculate instance-wise accuracy.
-
-    :param model: The language model.
-    :param tokenizer: The tokenizer.
-    :param requested_rewrite: List of requested rewrites.
-    :return: Instance-wise accuracy.
-    """
-    all_facts_recalled = True
-
-    for rewrite in requested_rewrite:
-        subject = rewrite['subject']
-        prompt = rewrite['prompt']
-        target_new = rewrite['target_new']['str']
-        input_text = prompt.format(subject)
-        input_ids = tokenizer.encode(input_text, return_tensors="pt").to(model.device).long()
-
-        outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-
-        if target_new.lower() not in generated_text.lower():
-            all_facts_recalled = False
-            break
-
-    return 1 if all_facts_recalled else 0
+    return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
 
 
 

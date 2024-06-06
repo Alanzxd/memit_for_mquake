@@ -115,59 +115,42 @@ def compute_rewrite_quality_counterfact(
 import torch
 import typing
 from transformers import AutoModelForCausalLM, AutoTokenizer
+import numpy as np
 
 def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
-    records: typing.List[dict],
+    record: dict,
     snips: typing.Optional[AttributeSnippets] = None,
     vec: typing.Optional[TfidfVectorizer] = None
 ) -> typing.Dict:
     """
-    Evaluates the rewritten model on multiple MQuAKE dataset records for multiple metrics including 
+    Evaluates the rewritten model on a MQuAKE dataset record for multiple metrics including
     edit-wise success rate, instance-wise accuracy, and multi-hop accuracy.
 
     :param model: The language model.
     :param tokenizer: The tokenizer.
-    :param records: A list of records from the MQuAKE dataset.
+    :param record: A single record from the MQuAKE dataset.
     :param snips: Optional, attribute snippets for reference texts.
     :param vec: Optional, a TF-IDF vectorizer.
     :return: A dictionary with evaluation metrics.
     """
-    total_multi_hop_accuracy = 0
-    total_edit_success_rate = 0
-    total_instance_accuracy = 0
+    multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers = calculate_metrics(
+        model, tokenizer, record
+    )
 
-    total_instances = len(records)
-    all_generated_answers = []
-
-    for record in records:
-        multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers = calculate_metrics(
-            model, tokenizer, record
-        )
-        total_multi_hop_accuracy += multi_hop_accuracy
-        total_edit_success_rate += edit_success_rate
-        total_instance_accuracy += instance_accuracy
-        all_generated_answers.append({
-            'questions': record['questions'],
-            'original_answers': [rw['target_true']['str'] for rw in record['requested_rewrite']],
-            'generated_answers': generated_answers,
-        })
-
-        # 打印各个指标
-        print(f"Multi-hop Accuracy: {multi_hop_accuracy}")
-        print(f"Edit-wise Success Rate: {edit_success_rate}")
-        print(f"Instance-wise Accuracy: {instance_accuracy}")
-
-    avg_multi_hop_accuracy = total_multi_hop_accuracy / total_instances if total_instances > 0 else 0
-    avg_edit_success_rate = total_edit_success_rate / total_instances if total_instances > 0 else 0
-    avg_instance_accuracy = total_instance_accuracy / total_instances if total_instances > 0 else 0
+    # 打印各个指标
+    print(f"Multi-hop Accuracy: {multi_hop_accuracy}")
+    print(f"Edit-wise Success Rate: {edit_success_rate}")
+    print(f"Instance-wise Accuracy: {instance_accuracy}")
 
     return {
-        'avg_multi_hop_accuracy': avg_multi_hop_accuracy,
-        'avg_edit_success_rate': avg_edit_success_rate,
-        'avg_instance_accuracy': avg_instance_accuracy,
-        'generated_answers': all_generated_answers,
+        'multi_hop_accuracy': multi_hop_accuracy,
+        'edit_success_rate': edit_success_rate,
+        'instance_accuracy': instance_accuracy,
+        'questions': record['questions'],
+        'original_answers': [rw['target_true']['str'] for rw in record['requested_rewrite']],
+        'generated_answers': generated_answers,
     }
 
 def calculate_metrics(
@@ -185,6 +168,7 @@ def calculate_metrics(
     """
     correct_responses = 0
     success_count = 0
+    all_facts_recalled = True
     generated_answers = []
 
     questions = record['questions']
@@ -192,44 +176,50 @@ def calculate_metrics(
     answer_aliases = record.get('new_answer_alias', [])
     requested_rewrite = record['requested_rewrite']
 
-    all_prompts = questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]
-    input_ids_list = [tokenizer.encode(prompt, return_tensors="pt").to(model.device).long() for prompt in all_prompts]
+    for question in questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
+        input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device)
 
-    # Ensure input size is within model limits
-    input_ids_list = [input_ids for input_ids in input_ids_list if input_ids.size(1) <= model.config.max_position_embeddings]
+        # 确保 input_ids 是 Long 类型
+        input_ids = input_ids.long()
 
-    for input_ids in input_ids_list:
+        # Check input tensor dimensions
+        print(f"Input IDs shape: {input_ids.shape}")
+
+        # Ensure input size is within model limits
+        if input_ids.size(1) > model.config.max_position_embeddings:
+            print(f"Input size {input_ids.size(1)} exceeds max position embeddings {model.config.max_position_embeddings}. Skipping.")
+            continue
+
         outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        generated_answers.append(generated_text)
 
-    # 处理多跳问题
-    for idx, question in enumerate(questions):
-        generated_answer = generated_answers[idx].split("\n")[2] if len(generated_answers[idx].split("\n")) > 2 else generated_answers[idx]
+        # 获取生成文本的回答部分，针对 multi-hop accuracy
+        if question in questions:
+            generated_answer_parts = generated_answers[idx].split("\n")
+            generated_answer = (generated_answer_parts[2] if len(generated_answer_parts) > 2 else "") + " " + (generated_answer_parts[3] if len(generated_answer_parts) > 3 else "")
+            generated_answers.append(generated_answer)
 
-        if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
-            correct_responses += 1
+            # Debugging information
+            print(f"Question: {question}")
+            print(f"Generated Text: {generated_answer}")
 
-    # 处理编辑请求
-    edit_success_results = []
-    for idx, rewrite in enumerate(requested_rewrite):
-        target_new = rewrite['target_new']['str']
-        generated_text = generated_answers[len(questions) + idx]
-        edit_success_results.append(target_new.lower() in generated_text.lower())
+            if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
+                correct_responses += 1
 
-    # 计算 edit-wise success rate
-    success_count = sum(edit_success_results)
-    edit_success_rate = success_count / len(requested_rewrite) if requested_rewrite else 0
+        # 针对 edit-wise success rate 和 instance-wise accuracy
+        if question not in questions:
+            target_new = [rw['target_new']['str'] for rw in requested_rewrite if rw['prompt'].format(rw['subject']) == question][0]
 
-    # 计算 instance-wise accuracy
-    all_facts_recalled = all(edit_success_results)
+            if target_new.lower() in generated_text.lower():
+                success_count += 1
+            else:
+                all_facts_recalled = False
+
+    multi_hop_accuracy = correct_responses / len(questions)
+    edit_success_rate = success_count / len(requested_rewrite)
     instance_accuracy = 1 if all_facts_recalled else 0
 
-    # 计算 multi-hop accuracy
-    multi_hop_accuracy = correct_responses / len(questions) if questions else 0
-
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
-
 
 
 

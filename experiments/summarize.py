@@ -49,9 +49,9 @@ def main(
                 cur_sum["time"].append(data["time"])
 
             post_data = data.get('post', {})
-            multi_hop_acc = post_data.get('multi_hop_accuracy', 0)
-            edit_success_rate = post_data.get('edit_success_rate', 0)
-            instance_accuracy = post_data.get('instance_accuracy', 0)
+            multi_hop_acc = post_data.get('multi_hop_accuracy', None)
+            edit_success_rate = post_data.get('edit_success_rate', None)
+            instance_accuracy = post_data.get('instance_accuracy', None)
 
             if multi_hop_acc is not None:
                 cur_sum["multi_hop_accuracy"].append(multi_hop_acc)
@@ -60,7 +60,7 @@ def main(
                     total_correct_cases_any += 1
                     if multi_hop_acc == 1:
                         total_correct_cases_all += 1
-                total_correct_questions += multi_hop_acc * len(data['questions'])
+                total_correct_questions += multi_hop_acc * len(data['questions'])  # Assuming 3 questions per case
 
             if edit_success_rate is not None:
                 total_edit_success_rate += edit_success_rate
@@ -129,3 +129,4 @@ if __name__ == "__main__":
         None if args.runs is None else args.runs.split(","),
         args.first_n_cases,
     )
+

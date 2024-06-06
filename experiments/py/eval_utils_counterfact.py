@@ -195,8 +195,7 @@ def calculate_metrics(
 
         # 获取生成文本的回答部分，针对 multi-hop accuracy
         if question in questions:
-            generated_answer_parts = generated_answers[idx].split("\n")
-            generated_answer = (generated_answer_parts[2] if len(generated_answer_parts) > 2 else "") + " " + (generated_answer_parts[3] if len(generated_answer_parts) > 3 else "")
+            generated_answer = (generated_text.split("\n")[2] + " " + generated_text.split("\n")[3]) if len(generated_text.split("\n")) > 2 else generated_text
             generated_answers.append(generated_answer)
 
             # Debugging information

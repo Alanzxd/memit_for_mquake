@@ -49,9 +49,9 @@ def main(
                 cur_sum["time"].append(data["time"])
 
             post_data = data.get('post', {})
-            multi_hop_acc = post_data.get('multi_hop_accuracy', None)
-            edit_success_rate = post_data.get('edit_success_rate', None)
-            instance_accuracy = post_data.get('instance_accuracy', None)
+            multi_hop_acc = post_data.get('multi_hop_accuracy', 0)
+            edit_success_rate = post_data.get('edit_success_rate', 0)
+            instance_accuracy = post_data.get('instance_accuracy', 0)
 
             if multi_hop_acc is not None:
                 cur_sum["multi_hop_accuracy"].append(multi_hop_acc)
@@ -60,7 +60,7 @@ def main(
                     total_correct_cases_any += 1
                     if multi_hop_acc == 1:
                         total_correct_cases_all += 1
-                total_correct_questions += multi_hop_acc * 3
+                total_correct_questions += multi_hop_acc * len(data['questions'])
 
             if edit_success_rate is not None:
                 total_edit_success_rate += edit_success_rate
@@ -92,7 +92,7 @@ def main(
     # 计算并输出各种多跳准确率
     print(f"Total Multi-hop Accuracy (per case, any question correct): {total_correct_cases_any / total_cases if total_cases > 0 else 0}")
     print(f"Total Multi-hop Accuracy (per case, all questions correct): {total_correct_cases_all / total_cases if total_cases > 0 else 0}")
-    print(f"Total Multi-hop Accuracy (per question): {total_correct_questions / (total_cases * 3) if total_cases > 0 else 0}")
+    print(f"Total Multi-hop Accuracy (per question): {total_correct_questions / (total_cases * len(data['questions'])) if total_cases > 0 else 0}")
 
     # 计算并输出平均 edit-wise success rate 和 instance-wise accuracy
     print(f"Average Edit-wise Success Rate: {total_edit_success_rate / total_cases if total_cases > 0 else 0}")

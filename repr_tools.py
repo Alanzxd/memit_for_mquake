@@ -23,7 +23,7 @@ def get_reprs_at_word_tokens(
     for more details.
     """
     idxs = get_words_idxs_in_templates(tok, context_templates, words, subtoken)
-    print("Computed indices:", idxs)
+    #print("Computed indices:", idxs)
     return get_reprs_at_idxs(
         model,
         tok,
@@ -121,7 +121,7 @@ def get_reprs_at_idxs(
                     else:
                         print(f"Index {idx_list} out of range for tensor index {i}.")
                 else:
-                    print("Empty tuple received")
+                    pass
         else:
             print("Unexpected data type:", type(cur_repr))
             return

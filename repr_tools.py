@@ -106,22 +106,25 @@ def get_reprs_at_idxs(
     def _process(cur_repr, batch_idxs, key):
         nonlocal to_return
         # Handle tensor directly if it's not a tuple
-        if not isinstance(cur_repr, tuple):
-            if not isinstance(cur_repr, torch.Tensor):
-                print("Unexpected data type:", type(cur_repr))
-                return
+        if isinstance(cur_repr, torch.Tensor):
+            for i, idx_list in enumerate(batch_idxs):
+                if idx_list[0] < len(cur_repr[i]):
+                    to_return[key].append(cur_repr[i][idx_list].mean(0))
+                else:
+                    print(f"Index {idx_list} out of range for tensor index {i}.")
+        elif isinstance(cur_repr, tuple):
+            for i, idx_list in enumerate(batch_idxs):
+                if len(cur_repr) > 0:
+                    cur_repr_tensor = cur_repr[0]  # 处理元组
+                    if idx_list[0] < len(cur_repr_tensor[i]):
+                        to_return[key].append(cur_repr_tensor[i][idx_list].mean(0))
+                    else:
+                        print(f"Index {idx_list} out of range for tensor index {i}.")
+                else:
+                    print("Empty tuple received")
         else:
-            if len(cur_repr) > 0:
-                cur_repr = cur_repr[0]
-            else:
-                print("Empty tuple received")
-                return
-        
-        for i, idx_list in enumerate(batch_idxs):
-            if idx_list[0] < len(cur_repr[i]):
-                to_return[key].append(cur_repr[i][idx_list].mean(0))
-            else:
-                print(f"Index {idx_list} out of range for tensor index {i}.")
+            print("Unexpected data type:", type(cur_repr))
+            return
 
     for batch_contexts, batch_idxs in _batch(n=128):
         contexts_tok = tok(batch_contexts, padding=True, return_tensors="pt").to(

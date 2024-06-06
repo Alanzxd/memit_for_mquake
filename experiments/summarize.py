@@ -21,6 +21,8 @@ def main(
     total_correct_cases_all = 0  # 记录所有问题都正确的案例数
     total_cases = 0  # 记录总案例数
     total_correct_questions = 0  # 记录总正确问题数
+    total_edit_success_rate = 0  # 记录总的edit-wise success rate
+    total_instance_accuracy = 0  # 记录总的instance-wise accuracy
 
     for run_dir in (RESULTS_DIR / dir_name if not abs_path else dir_name).iterdir():
         # Skip if we're not interested
@@ -48,6 +50,9 @@ def main(
 
             post_data = data.get('post', {})
             multi_hop_acc = post_data.get('multi_hop_accuracy', None)
+            edit_success_rate = post_data.get('edit_success_rate', None)
+            instance_accuracy = post_data.get('instance_accuracy', None)
+
             if multi_hop_acc is not None:
                 cur_sum["multi_hop_accuracy"].append(multi_hop_acc)
                 total_cases += 1
@@ -56,6 +61,12 @@ def main(
                     if multi_hop_acc == 1:
                         total_correct_cases_all += 1
                 total_correct_questions += multi_hop_acc * 3
+
+            if edit_success_rate is not None:
+                total_edit_success_rate += edit_success_rate
+
+            if instance_accuracy is not None:
+                total_instance_accuracy += instance_accuracy
 
         if len(cur_sum) == 0:
             continue
@@ -82,6 +93,10 @@ def main(
     print(f"Total Multi-hop Accuracy (per case, any question correct): {total_correct_cases_any / total_cases if total_cases > 0 else 0}")
     print(f"Total Multi-hop Accuracy (per case, all questions correct): {total_correct_cases_all / total_cases if total_cases > 0 else 0}")
     print(f"Total Multi-hop Accuracy (per question): {total_correct_questions / (total_cases * 3) if total_cases > 0 else 0}")
+
+    # 计算并输出平均 edit-wise success rate 和 instance-wise accuracy
+    print(f"Average Edit-wise Success Rate: {total_edit_success_rate / total_cases if total_cases > 0 else 0}")
+    print(f"Average Instance-wise Accuracy: {total_instance_accuracy / total_cases if total_cases > 0 else 0}")
 
     return uncompressed if get_uncompressed else summaries
 
@@ -114,4 +129,3 @@ if __name__ == "__main__":
         None if args.runs is None else args.runs.split(","),
         args.first_n_cases,
     )
-

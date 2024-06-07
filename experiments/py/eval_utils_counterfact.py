@@ -202,7 +202,7 @@ def calculate_metrics(
             print(f"Question: {question}")
             print(f"Generated Text: {generated_answer}")
 
-            if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
+            if correct_answer.lower() in generated_answers.lower() or any(alias.lower() in generated_answers.lower() for alias in answer_aliases):
                 correct_responses += 1
 
         # 针对 edit-wise success rate 和 instance-wise accuracy

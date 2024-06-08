@@ -202,7 +202,7 @@ def calculate_metrics(
             print(f"Question: {question}")
             print(f"Generated Text: {generated_answer}")
 
-            if correct_answer.lower() in generated_answers.lower() or any(alias.lower() in generated_answers.lower() for alias in answer_aliases):
+            if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
                 correct_responses += 1
 
         # 针对 edit-wise success rate 和 instance-wise accuracy
@@ -211,8 +211,9 @@ def calculate_metrics(
 
             if target_new.lower() in generated_text.lower():
                 success_count += 1
-            else:
-                all_facts_recalled = False
+
+    # Check if all facts are recalled
+    all_facts_recalled = (success_count == len(requested_rewrite))
 
     multi_hop_accuracy = correct_responses / len(questions)
     edit_success_rate = success_count / len(requested_rewrite)

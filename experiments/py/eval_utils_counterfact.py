@@ -185,7 +185,7 @@ def calculate_metrics(
 
     for i, question in enumerate(questions):
         generated_text = generated_texts[i]
-        generated_answer = generated_text.split("\n")[2] if len(generated_text.split("\n")) > 2 else ""
+        generated_answer = generated_text
         if generated_answer == question:
             generated_answer = ""
         generated_answers.append(generated_answer)

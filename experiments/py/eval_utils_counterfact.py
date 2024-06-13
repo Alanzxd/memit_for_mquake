@@ -177,15 +177,9 @@ def calculate_metrics(
     answer_aliases = record.get('new_answer_alias', [])
     requested_rewrite = record['requested_rewrite']
 
-    # Combine questions and requested rewrites into one list
-    all_prompts = questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]
-    
-    # Use generate_fast to generate answers
-    generated_texts = generate_fast(model, tokenizer, all_prompts, n_gen_per_prompt=1, max_out_len=100)
-
-    for i, question in enumerate(questions):
-        generated_text = generated_texts[i]
-        generated_answer = extract_answer(question, generated_text, questions)
+    # Separate processing for each question
+    for question in questions:
+        generated_answer = ask_model(model, tokenizer, question)
         if generated_answer == question:
             generated_answer = ""
         generated_answers.append(generated_answer)
@@ -197,9 +191,12 @@ def calculate_metrics(
         if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
             correct_responses += 1
 
-    for i, rewrite in enumerate(requested_rewrite):
-        generated_text = generated_texts[len(questions) + i]
+    # Separate processing for each rewrite prompt
+    for rewrite in requested_rewrite:
+        prompt = rewrite['prompt'].format(rewrite['subject'])
         target_new = rewrite['target_new']['str']
+        generated_text = ask_model(model, tokenizer, prompt)
+        
         if target_new.lower() in generated_text.lower():
             success_count += 1
 
@@ -212,16 +209,38 @@ def calculate_metrics(
 
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
 
-def extract_answer(question: str, generated_text: str, all_questions: typing.List[str]) -> str:
+def ask_model(model, tokenizer, prompt):
+    """
+    Generate a response from the model for a given prompt using generate_fast.
+    
+    :param model: The language model.
+    :param tokenizer: The tokenizer.
+    :param prompt: The prompt to send to the model.
+    :return: The generated response.
+    """
+    gen_texts = generate_fast(
+        model,
+        tokenizer,
+        [prompt],
+        n_gen_per_prompt=1,
+        max_out_len=100,
+    )
+    generated_text = gen_texts[0].strip()
+    
+    # Extract the answer part from the generated text
+    answer = extract_answer(prompt, generated_text)
+    
+    return answer
+
+def extract_answer(question: str, generated_text: str) -> str:
     """
     Extract the answer from the generated text.
     
     :param question: The original question.
     :param generated_text: The generated text from the model.
-    :param all_questions: All questions in the current context.
     :return: The extracted answer.
     """
-    # Find the next question in the generated text
+    # Find the position of the question in the generated text
     question_index = generated_text.find(question)
     if question_index == -1:
         return generated_text  # If question not found, return the entire generated text
@@ -230,23 +249,21 @@ def extract_answer(question: str, generated_text: str, all_questions: typing.Lis
     answer_start = question_index + len(question)
     answer_end = len(generated_text)
 
-    # Check for any other question in the generated text
-    for q in all_questions:
+    # Detect if another question starts in the generated text and set the answer_end
+    for q in ["?", ".", "!"]:  # Detect common sentence ending symbols
         next_question_index = generated_text.find(q, answer_start)
         if next_question_index != -1:
-            answer_end = next_question_index
+            answer_end = next_question_index + 1  # Include the symbol
             break
 
     answer = generated_text[answer_start:answer_end].strip()
-    
-    # Remove any subsequent questions or text that is not part of the answer
-    for q in all_questions:
-        question_in_answer_index = answer.find(q)
-        if question_in_answer_index != -1:
-            answer = answer[:question_in_answer_index].strip()
-            break
+
+    # Remove the question part from the answer if it is mistakenly included
+    if answer.startswith(question):
+        answer = answer[len(question):].strip()
 
     return answer
+
 
 
 

@@ -231,25 +231,18 @@ def ask_model(model, tokenizer, prompt):
 
 def extract_answer(generated_text, question):
     """
-    Extract the answer from the generated text by finding the content after the first question mark,
-    or return the entire generated text if no question mark is found.
+    Extract the answer from the generated text by finding the content after the first 'A:' or 'answer is:',
+    or return the entire generated text if no such keyword is found.
     
     :param generated_text: The generated text from the model.
     :param question: The original question.
     :return: The extracted answer.
     """
-    question_index = generated_text.find('?')
-    if question_index != -1:
-        answer_start = question_index + 1
-        next_question_index = generated_text.find('?', answer_start)
-        if next_question_index != -1:
-            # Extract the text between the first and second question mark
-            answer = generated_text[answer_start:next_question_index].strip()
-        else:
-            # Extract the text after the first question mark until the end
-            answer = generated_text[answer_start:].strip()
+    match = re.search(r'(?<=A:|answer is:).*', generated_text, re.IGNORECASE)
+    if match:
+        answer = match.group().strip()
     else:
-        # No question mark found, return the whole generated text
+        # No specific keyword found, return the whole generated text
         answer = generated_text
 
     # Ensure the answer is not just the question repeated
@@ -257,7 +250,6 @@ def extract_answer(generated_text, question):
         answer = ""
 
     return answer
-
 
 
 

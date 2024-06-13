@@ -221,7 +221,7 @@ def ask_model(model, tokenizer, prompt):
         tokenizer,
         [prompt],
         n_gen_per_prompt=1,
-        max_out_len=100,
+        max_out_len=200,
     )
     generated_text = gen_texts[0].strip()
     return generated_text

@@ -185,7 +185,7 @@ def calculate_metrics(
 
     for i, question in enumerate(questions):
         generated_text = generated_texts[i]
-        generated_answer = extract_answer(question, generated_text)
+        generated_answer = extract_answer(question, generated_text, questions)
         if generated_answer == question:
             generated_answer = ""
         generated_answers.append(generated_answer)
@@ -212,19 +212,33 @@ def calculate_metrics(
 
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
 
-def extract_answer(question: str, generated_text: str) -> str:
+def extract_answer(question: str, generated_text: str, all_questions: typing.List[str]) -> str:
     """
     Extract the answer from the generated text.
     
     :param question: The original question.
     :param generated_text: The generated text from the model.
+    :param all_questions: All questions in the current context.
     :return: The extracted answer.
     """
-    # 提取生成文本中的答案部分
-    if generated_text.startswith(question):
-        return generated_text[len(question):].strip().split('?')[-1].strip()
-    return generated_text
+    # Find the next question in the generated text
+    question_index = generated_text.find(question)
+    if question_index == -1:
+        return ""
 
+    # Extract text starting from the end of the current question
+    answer_start = question_index + len(question)
+    answer_end = len(generated_text)
+
+    # Check for any other question in the generated text
+    for q in all_questions:
+        next_question_index = generated_text.find(q, answer_start)
+        if next_question_index != -1:
+            answer_end = next_question_index
+            break
+
+    answer = generated_text[answer_start:answer_end].strip()
+    return answer
 
 
 

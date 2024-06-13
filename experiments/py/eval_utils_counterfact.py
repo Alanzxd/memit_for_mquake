@@ -240,28 +240,25 @@ def extract_answer(question: str, generated_text: str) -> str:
     :param generated_text: The generated text from the model.
     :return: The extracted answer.
     """
-    # Find the position of the question in the generated text
-    question_index = generated_text.find(question)
-    if question_index == -1:
-        return generated_text  # If question not found, return the entire generated text
+    question_end = generated_text.find('?')
+    if question_end == -1:
+        return generated_text  # If no question mark found, return the entire generated text
 
-    # Extract text starting from the end of the current question
-    answer_start = question_index + len(question)
-
-    # Detect if another question starts in the generated text and set the answer_end
-    answer_end = len(generated_text)
-    for q in ["?", "!", ".", "\n"]:  # Detect common sentence ending symbols
-        next_question_index = generated_text.find(q, answer_start)
-        if next_question_index != -1:
-            answer_end = next_question_index + 1  # Include the symbol
-            break
-
-    answer = generated_text[answer_start:answer_end].strip()
-
-    # Remove the question part from the answer if it is mistakenly included
-    if answer.startswith(question):
-        answer = answer[len(question):].strip()
-
+    next_question_start = generated_text.find('?', question_end + 1)
+    if next_question_start == -1:
+        answer = generated_text[question_end + 1:].strip()
+    else:
+        answer = generated_text[question_end + 1:next_question_start].strip()
+    
+    # Further split the answer by sentence-ending punctuation
+    answer_sentences = [sentence.strip() for sentence in re.split(r'[.!?]', answer) if sentence.strip()]
+    if answer_sentences:
+        answer = answer_sentences[0]
+    
+    # If the extracted answer is empty or matches the question, return the entire generated text
+    if not answer or answer == question:
+        answer = generated_text
+    
     return answer
 
 

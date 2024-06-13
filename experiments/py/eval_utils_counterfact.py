@@ -181,8 +181,6 @@ def calculate_metrics(
     # Separate processing for each question
     for question in questions:
         generated_answer = ask_model(model, tokenizer, question)
-        if generated_answer == question:
-            generated_answer = ""
         generated_answers.append(generated_answer)
 
         # Debugging information
@@ -251,14 +249,10 @@ def extract_answer(question: str, generated_text: str) -> str:
     else:
         answer = generated_text[question_end + 1:next_question_start].strip()
     
-    # Further split the answer by sentence-ending punctuation
-    answer_sentences = [sentence.strip() for sentence in re.split(r'[.!?]', answer) if sentence.strip()]
-    if answer_sentences:
-        answer = answer_sentences[0]
-    
-    # If the extracted answer is empty or matches the question, return the entire generated text
-    if not answer or answer == question:
-        answer = generated_text
+    # Remove any following questions
+    sentence_end = re.search(r'[.!?]', answer)
+    if sentence_end:
+        answer = answer[:sentence_end.end()].strip()
     
     return answer
 

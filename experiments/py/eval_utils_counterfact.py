@@ -113,6 +113,7 @@ def compute_rewrite_quality_counterfact(
     return ret
 
 
+import re
 import torch
 import typing
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -184,24 +185,25 @@ def calculate_metrics(
         # 按照 '?' 分割生成的文本，并提取第一个答案
         parts = generated_text.split('?')
         if len(parts) > 1:
-            generated_answer = parts[1].strip().split()[0]  # 提取第一个答案
+            answer = parts[1].strip()  # 提取第一个答案
+            answer = extract_first_sentence(answer)
         else:
-            generated_answer = generated_text  # 如果找不到 '?', 返回所有生成的文本
+            answer = generated_text  # 如果找不到 '?', 返回所有生成的文本
         
-        generated_answers.append(generated_answer)
+        generated_answers.append(answer)
 
         # Debugging information
         print(f"Question: {question}")
-        print(f"Generated Text: {generated_answer}")
+        print(f"Generated Text: {answer}")
 
-        if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
+        if correct_answer.lower() in answer.lower() or any(alias.lower() in answer.lower() for alias in answer_aliases):
             correct_responses += 1
 
     for rewrite in requested_rewrite:
         prompt = rewrite['prompt'].format(rewrite['subject'])
         target_new = rewrite['target_new']['str']
         generated_text = ask_model(model, tokenizer, prompt)
-        
+        generated_answers.append(generated_text)
         
         if target_new.lower() in generated_text.lower():
             success_count += 1
@@ -233,6 +235,19 @@ def ask_model(model, tokenizer, prompt):
     )
     generated_text = gen_texts[0].strip()
     return generated_text
+
+def extract_first_sentence(text):
+    """
+    Extract the first sentence from the text.
+    
+    :param text: The input text.
+    :return: The first sentence of the text.
+    """
+    sentence_end = re.search(r'[.!?]', text)
+    if sentence_end:
+        return text[:sentence_end.end()].strip()
+    return text.strip()
+
 
 
 

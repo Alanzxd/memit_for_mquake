@@ -247,10 +247,10 @@ def extract_answer(question: str, generated_text: str) -> str:
 
     # Extract text starting from the end of the current question
     answer_start = question_index + len(question)
-    answer_end = len(generated_text)
 
     # Detect if another question starts in the generated text and set the answer_end
-    for q in ["?", ".", "!"]:  # Detect common sentence ending symbols
+    answer_end = len(generated_text)
+    for q in ["?", "!", ".", "\n"]:  # Detect common sentence ending symbols
         next_question_index = generated_text.find(q, answer_start)
         if next_question_index != -1:
             answer_end = next_question_index + 1  # Include the symbol
@@ -263,7 +263,6 @@ def extract_answer(question: str, generated_text: str) -> str:
         answer = answer[len(question):].strip()
 
     return answer
-
 
 
 

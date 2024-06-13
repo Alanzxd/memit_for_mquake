@@ -178,7 +178,6 @@ def calculate_metrics(
     answer_aliases = record.get('new_answer_alias', [])
     requested_rewrite = record['requested_rewrite']
 
-    # Separate processing for each question
     for question in questions:
         generated_answer = ask_model(model, tokenizer, question)
         generated_answers.append(generated_answer)
@@ -190,11 +189,11 @@ def calculate_metrics(
         if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
             correct_responses += 1
 
-    # Separate processing for each rewrite prompt
     for rewrite in requested_rewrite:
         prompt = rewrite['prompt'].format(rewrite['subject'])
         target_new = rewrite['target_new']['str']
         generated_text = ask_model(model, tokenizer, prompt)
+        generated_answers.append(generated_text)
         
         if target_new.lower() in generated_text.lower():
             success_count += 1
@@ -225,36 +224,7 @@ def ask_model(model, tokenizer, prompt):
         max_out_len=100,
     )
     generated_text = gen_texts[0].strip()
-    
-    # Extract the answer part from the generated text
-    answer = extract_answer(prompt, generated_text)
-    
-    return answer
-
-def extract_answer(question: str, generated_text: str) -> str:
-    """
-    Extract the answer from the generated text.
-    
-    :param question: The original question.
-    :param generated_text: The generated text from the model.
-    :return: The extracted answer.
-    """
-    question_end = generated_text.find('?')
-    if question_end == -1:
-        return generated_text  # If no question mark found, return the entire generated text
-
-    next_question_start = generated_text.find('?', question_end + 1)
-    if next_question_start == -1:
-        answer = generated_text[question_end + 1:].strip()
-    else:
-        answer = generated_text[question_end + 1:next_question_start].strip()
-    
-    # Remove any following questions
-    sentence_end = re.search(r'[.!?]', answer)
-    if sentence_end:
-        answer = answer[:sentence_end.end()].strip()
-    
-    return answer
+    return generated_text
 
 
 

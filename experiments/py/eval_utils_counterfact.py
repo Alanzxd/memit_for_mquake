@@ -116,6 +116,7 @@ import torch
 import typing
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import numpy as np
+from util.generate import generate_fast  # Ensure you have imported the generate_fast function
 
 def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
@@ -176,43 +177,31 @@ def calculate_metrics(
     answer_aliases = record.get('new_answer_alias', [])
     requested_rewrite = record['requested_rewrite']
 
-    for question in questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
-        input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device)
+    # Combine questions and requested rewrites into one list
+    all_prompts = questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]
+    
+    # Use generate_fast to generate answers
+    generated_texts = generate_fast(model, tokenizer, all_prompts, n_gen_per_prompt=1, max_out_len=100)
 
-        # 确保 input_ids 是 Long 类型
-        input_ids = input_ids.long()
+    for i, question in enumerate(questions):
+        generated_text = generated_texts[i]
+        generated_answer = generated_text.split("\n")[2] if len(generated_text.split("\n")) > 2 else ""
+        if generated_answer == question:
+            generated_answer = ""
+        generated_answers.append(generated_answer)
 
-        # Check input tensor dimensions
-        print(f"Input IDs shape: {input_ids.shape}")
+        # Debugging information
+        print(f"Question: {question}")
+        print(f"Generated Text: {generated_answer}")
 
-        # Ensure input size is within model limits
-        if input_ids.size(1) > model.config.max_position_embeddings:
-            print(f"Input size {input_ids.size(1)} exceeds max position embeddings {model.config.max_position_embeddings}. Skipping.")
-            continue
+        if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
+            correct_responses += 1
 
-        outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-
-        # 获取生成文本的回答部分，针对 multi-hop accuracy
-        if question in questions:
-            generated_answer = generated_text.split("\n")[2] if len(generated_text.split("\n")) > 2 else ""
-            if generated_answer == question:
-                generated_answer = ""
-            generated_answers.append(generated_answer)
-
-            # Debugging information
-            print(f"Question: {question}")
-            print(f"Generated Text: {generated_answer}")
-
-            if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
-                correct_responses += 1
-
-        # 针对 edit-wise success rate 和 instance-wise accuracy
-        if question not in questions:
-            target_new = [rw['target_new']['str'] for rw in requested_rewrite if rw['prompt'].format(rw['subject']) == question][0]
-
-            if target_new.lower() in generated_text.lower():
-                success_count += 1
+    for i, rewrite in enumerate(requested_rewrite):
+        generated_text = generated_texts[len(questions) + i]
+        target_new = rewrite['target_new']['str']
+        if target_new.lower() in generated_text.lower():
+            success_count += 1
 
     # Check if all facts are recalled
     all_facts_recalled = (success_count == len(requested_rewrite))
@@ -222,6 +211,7 @@ def calculate_metrics(
     instance_accuracy = 1 if all_facts_recalled else 0
 
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
+
 
 
 

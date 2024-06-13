@@ -238,11 +238,12 @@ def extract_answer(generated_text, question):
     :param question: The original question.
     :return: The extracted answer.
     """
-    match = re.search(r'(?<=A:|answer is:).*', generated_text, re.IGNORECASE)
-    if match:
-        answer = match.group().strip()
+    # Split by "A:" or "answer is:", case-insensitive
+    split_text = re.split(r'(?i)(A:|answer is:)', generated_text, maxsplit=1)
+    
+    if len(split_text) > 2:
+        answer = split_text[2].strip()
     else:
-        # No specific keyword found, return the whole generated text
         answer = generated_text
 
     # Ensure the answer is not just the question repeated

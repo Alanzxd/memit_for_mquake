@@ -117,6 +117,7 @@ import torch
 import typing
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import numpy as np
+import re
 from util.generate import generate_fast
 
 def compute_rewrite_quality_mquake(
@@ -180,22 +181,24 @@ def calculate_metrics(
 
     for question in questions:
         generated_answer = ask_model(model, tokenizer, question)
-        generated_answers.append(generated_answer)
+        extracted_answer = extract_answer(generated_answer, question)
+        generated_answers.append(extracted_answer)
 
         # Debugging information
         print(f"Question: {question}")
-        print(f"Generated Text: {generated_answer}")
+        print(f"Generated Text: {extracted_answer}")
 
-        if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
+        if correct_answer.lower() in extracted_answer.lower() or any(alias.lower() in extracted_answer.lower() for alias in answer_aliases):
             correct_responses += 1
 
     for rewrite in requested_rewrite:
         prompt = rewrite['prompt'].format(rewrite['subject'])
         target_new = rewrite['target_new']['str']
         generated_text = ask_model(model, tokenizer, prompt)
-        generated_answers.append(generated_text)
+        extracted_answer = extract_answer(generated_text, prompt)
+        generated_answers.append(extracted_answer)
         
-        if target_new.lower() in generated_text.lower():
+        if target_new.lower() in extracted_answer.lower():
             success_count += 1
 
     # Check if all facts are recalled
@@ -226,7 +229,28 @@ def ask_model(model, tokenizer, prompt):
     generated_text = gen_texts[0].strip()
     return generated_text
 
+def extract_answer(generated_text, question):
+    """
+    Extract the answer from the generated text by finding the content between the first and second question marks,
+    or return the entire generated text if there is only one question mark.
+    
+    :param generated_text: The generated text from the model.
+    :param question: The original question.
+    :return: The extracted answer.
+    """
+    question_indices = [m.start() for m in re.finditer(r'\?', generated_text)]
+    if len(question_indices) > 1:
+        start_idx = question_indices[0] + 1
+        end_idx = question_indices[1]
+        answer = generated_text[start_idx:end_idx].strip()
+    else:
+        answer = generated_text
 
+    # Ensure the answer is not just the question repeated
+    if answer.lower() == question.lower():
+        answer = ""
+
+    return answer
 
 
 

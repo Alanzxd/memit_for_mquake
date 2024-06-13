@@ -219,14 +219,14 @@ def extract_answer(generated_text: str) -> str:
     :param generated_text: The generated text from the model.
     :return: The extracted answer.
     """
+    # 提取生成文本中的答案部分
+    answer = ""
     lines = generated_text.split("\n")
-    if len(lines) > 2:
-        return lines[2]
-    elif len(lines) > 1:
-        return lines[1]
-    else:
-        return generated_text
-
+    for line in lines:
+        if "?" not in line:  # 找到第一个不是问题的行
+            answer = line.strip()
+            break
+    return answer
 
 
 

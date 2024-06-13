@@ -9,6 +9,7 @@ from itertools import chain
 from dsets import AttributeSnippets
 from util.generate import generate_fast
 from util.perplexity import perplexity
+import re
 
 def compute_rewrite_quality_counterfact(
     model: AutoModelForCausalLM,

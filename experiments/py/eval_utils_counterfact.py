@@ -231,19 +231,25 @@ def ask_model(model, tokenizer, prompt):
 
 def extract_answer(generated_text, question):
     """
-    Extract the answer from the generated text by finding the content between the first and second question marks,
-    or return the entire generated text if there is only one question mark.
+    Extract the answer from the generated text by finding the content after the first question mark,
+    or return the entire generated text if no question mark is found.
     
     :param generated_text: The generated text from the model.
     :param question: The original question.
     :return: The extracted answer.
     """
-    question_indices = [m.start() for m in re.finditer(r'\?', generated_text)]
-    if len(question_indices) > 1:
-        start_idx = question_indices[0] + 1
-        end_idx = question_indices[1]
-        answer = generated_text[start_idx:end_idx].strip()
+    question_index = generated_text.find('?')
+    if question_index != -1:
+        answer_start = question_index + 1
+        next_question_index = generated_text.find('?', answer_start)
+        if next_question_index != -1:
+            # Extract the text between the first and second question mark
+            answer = generated_text[answer_start:next_question_index].strip()
+        else:
+            # Extract the text after the first question mark until the end
+            answer = generated_text[answer_start:].strip()
     else:
+        # No question mark found, return the whole generated text
         answer = generated_text
 
     # Ensure the answer is not just the question repeated

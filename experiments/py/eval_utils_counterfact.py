@@ -116,7 +116,7 @@ import torch
 import typing
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import numpy as np
-from util.generate import generate_fast  # Ensure you have imported the generate_fast function
+from util.generate import generate_fast
 
 def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
@@ -185,7 +185,7 @@ def calculate_metrics(
 
     for i, question in enumerate(questions):
         generated_text = generated_texts[i]
-        generated_answer = generated_text
+        generated_answer = extract_answer(generated_text)
         if generated_answer == question:
             generated_answer = ""
         generated_answers.append(generated_answer)
@@ -211,6 +211,22 @@ def calculate_metrics(
     instance_accuracy = 1 if all_facts_recalled else 0
 
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
+
+def extract_answer(generated_text: str) -> str:
+    """
+    Extract the answer from the generated text.
+    
+    :param generated_text: The generated text from the model.
+    :return: The extracted answer.
+    """
+    lines = generated_text.split("\n")
+    if len(lines) > 2:
+        return lines[2]
+    elif len(lines) > 1:
+        return lines[1]
+    else:
+        return generated_text
+
 
 
 

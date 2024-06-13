@@ -179,7 +179,15 @@ def calculate_metrics(
     requested_rewrite = record['requested_rewrite']
 
     for question in questions:
-        generated_answer = ask_model(model, tokenizer, question)
+        generated_text = ask_model(model, tokenizer, question)
+        
+        # 按照 '?' 分割生成的文本，并提取第一个答案
+        parts = generated_text.split('?')
+        if len(parts) > 1:
+            generated_answer = parts[1].strip().split()[0]  # 提取第一个答案
+        else:
+            generated_answer = generated_text  # 如果找不到 '?', 返回所有生成的文本
+        
         generated_answers.append(generated_answer)
 
         # Debugging information
@@ -193,7 +201,7 @@ def calculate_metrics(
         prompt = rewrite['prompt'].format(rewrite['subject'])
         target_new = rewrite['target_new']['str']
         generated_text = ask_model(model, tokenizer, prompt)
-        generated_answers.append(generated_text)
+        
         
         if target_new.lower() in generated_text.lower():
             success_count += 1
@@ -225,6 +233,7 @@ def ask_model(model, tokenizer, prompt):
     )
     generated_text = gen_texts[0].strip()
     return generated_text
+
 
 
 

@@ -224,7 +224,7 @@ def extract_answer(question: str, generated_text: str, all_questions: typing.Lis
     # Find the next question in the generated text
     question_index = generated_text.find(question)
     if question_index == -1:
-        return ""
+        return generated_text  # If question not found, return the entire generated text
 
     # Extract text starting from the end of the current question
     answer_start = question_index + len(question)
@@ -238,6 +238,14 @@ def extract_answer(question: str, generated_text: str, all_questions: typing.Lis
             break
 
     answer = generated_text[answer_start:answer_end].strip()
+    
+    # Remove any subsequent questions or text that is not part of the answer
+    for q in all_questions:
+        question_in_answer_index = answer.find(q)
+        if question_in_answer_index != -1:
+            answer = answer[:question_in_answer_index].strip()
+            break
+
     return answer
 
 

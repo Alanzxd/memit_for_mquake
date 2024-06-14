@@ -182,14 +182,14 @@ def calculate_metrics(
     for question in questions:
         generated_text = ask_model(model, tokenizer, question)
         
-        # 按照 '?' 分割生成的文本，并提取第一个答案
+        ''' # 按照 '?' 分割生成的文本，并提取第一个答案
         parts = generated_text.split('?')
         if len(parts) > 1:
             answer = parts[1].strip()  # 提取第一个答案
             answer = extract_first_sentence(answer)
         else:
-            answer = generated_text  # 如果找不到 '?', 返回所有生成的文本
-        
+            answer = generated_text  # 如果找不到 '?', 返回所有生成的文本'''
+        answer=generated_text
         generated_answers.append(answer)
 
         # Debugging information
@@ -231,7 +231,7 @@ def ask_model(model, tokenizer, prompt):
         tokenizer,
         [prompt],
         n_gen_per_prompt=1,
-        max_out_len=200,
+        max_out_len=150,
     )
     generated_text = gen_texts[0].strip()
     return generated_text
@@ -243,7 +243,7 @@ def extract_first_sentence(text):
     :param text: The input text.
     :return: The first sentence of the text.
     """
-    sentence_end = re.search(r'[.!?]', text)
+    sentence_end = re.search(r'[.]', text)
     if sentence_end:
         return text[:sentence_end.end()].strip()
     return text.strip()

@@ -74,13 +74,19 @@ def generate_interactive(
         print()
 
 
+import unicodedata
+from typing import List
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
 def generate_fast(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
     prompts: List[str],
     n_gen_per_prompt: int = 1,
-    top_k: int = 5,
-    max_out_len: int = 200,
+    top_k: int = 1,
+    max_out_len: int = 256,  # Set max_tokens to 256
+    temperature: float = 0.0,  # Set temperature to 0
 ):
     """
     Fast, parallelized auto-regressive text generation with top-k sampling.
@@ -110,14 +116,11 @@ def generate_fast(
                 use_cache=True,
             )
             logits, past_key_values = model_out.logits, model_out.past_key_values
-            softmax_out = torch.nn.functional.softmax(logits[:, -1, :], dim=1)
+            softmax_out = torch.nn.functional.softmax(logits[:, -1, :] / temperature, dim=1)
 
             # Top-k sampling
             tk = torch.topk(softmax_out, top_k, dim=1).indices
-            softmax_out_top_k = torch.gather(softmax_out, 1, tk)
-            softmax_out_top_k = softmax_out_top_k / softmax_out_top_k.sum(1)[:, None]
-            new_tok_indices = torch.multinomial(softmax_out_top_k, 1)
-            new_toks = torch.gather(tk, 1, new_tok_indices)
+            new_toks = tk[:, 0].unsqueeze(1)  # Select the highest probability token
 
             # If we're currently generating the continuation for the last token in `input_ids`,
             # create a new index so we can insert the new token
@@ -150,8 +153,17 @@ def generate_fast(
     txt = [
         unicodedata.normalize("NFKD", x)
         .replace("\n\n", " ")
-        .replace("<|endoftext|>", "")
+        .replace("", "")
         for x in txt
     ]
 
-    return txt
+    # Remove the prompt from the generated text to keep only the answer
+    answers = []
+    for prompt, text in zip(prompts, txt):
+        if text.startswith(prompt):
+            answer = text[len(prompt):].strip()
+            answers.append(answer)
+        else:
+            answers.append(text.strip())
+
+    return answers

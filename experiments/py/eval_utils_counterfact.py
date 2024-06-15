@@ -113,12 +113,10 @@ def compute_rewrite_quality_counterfact(
     return ret
 
 
-import re
 import torch
 import typing
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import numpy as np
-from util.generate import generate_fast
 
 def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
@@ -179,27 +177,43 @@ def calculate_metrics(
     answer_aliases = record.get('new_answer_alias', [])
     requested_rewrite = record['requested_rewrite']
 
-    for question in questions:
-        generated_text = ask_model(model, tokenizer, question)
+    for question in questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
+        input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device)
 
-        generated_answers.append(generated_text)
+        # 确保 input_ids 是 Long 类型
+        input_ids = input_ids.long()
 
-        # Debugging information
-        print(f"Question: {question}")
-        print(f"Generated Text: {generated_text}")
+        # Check input tensor dimensions
+        print(f"Input IDs shape: {input_ids.shape}")
 
-        if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
-            correct_responses += 1
+        # Ensure input size is within model limits
+        if input_ids.size(1) > model.config.max_position_embeddings:
+            print(f"Input size {input_ids.size(1)} exceeds max position embeddings {model.config.max_position_embeddings}. Skipping.")
+            continue
 
-    for rewrite in requested_rewrite:
-        prompt = rewrite['prompt'].format(rewrite['subject'])
-        target_new = rewrite['target_new']['str']
-        generated_text = ask_model(model, tokenizer, prompt)
+        outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
-        generated_answers.append(generated_text)
-        
-        if target_new.lower() in generated_text.lower():
-            success_count += 1
+        # 获取生成文本的回答部分，针对 multi-hop accuracy
+        if question in questions:
+            generated_answer = generated_text.split("\n")[2] if len(generated_text.split("\n")) > 2 else generated_text
+            if generated_answer == question or not generated_answer.strip():
+                generated_answer = ""
+            generated_answers.append(generated_answer)
+
+            # Debugging information
+            print(f"Question: {question}")
+            print(f"Generated Text: {generated_answer}")
+
+            if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
+                correct_responses += 1
+
+        # 针对 edit-wise success rate 和 instance-wise accuracy
+        if question not in questions:
+            target_new = [rw['target_new']['str'] for rw in requested_rewrite if rw['prompt'].format(rw['subject']) == question][0]
+
+            if target_new.lower() in generated_text.lower():
+                success_count += 1
 
     # Check if all facts are recalled
     all_facts_recalled = (success_count == len(requested_rewrite))
@@ -209,28 +223,6 @@ def calculate_metrics(
     instance_accuracy = 1 if all_facts_recalled else 0
 
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
-
-def ask_model(model, tokenizer, prompt):
-    """
-    Generate a response from the model for a given prompt using generate_fast.
-    
-    :param model: The language model.
-    :param tokenizer: The tokenizer.
-    :param prompt: The prompt to send to the model.
-    :return: The generated response.
-    """
-    gen_texts = generate_fast(
-        model,
-        tokenizer,
-        [prompt],
-        n_gen_per_prompt=1,
-        max_out_len=256,
-        temperature=0
-    )
-    generated_text = gen_texts[0].strip()
-    return generated_text
-
-
 
 
 

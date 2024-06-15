@@ -203,8 +203,8 @@ def calculate_metrics(
 
             # Debugging information
             print(f"Question: {question}")
-            print(f"Generated Text: {generated_answer}")
-
+            print(f"Generated Answer: {generated_answer}")
+            print(f"Generated Text: {generated_text}")
             if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
                 correct_responses += 1
 

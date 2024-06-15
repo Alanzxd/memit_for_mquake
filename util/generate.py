@@ -84,12 +84,12 @@ def generate_fast(
     tok: AutoTokenizer,
     prompts: List[str],
     n_gen_per_prompt: int = 1,
-    top_k: int = 1,
-    max_out_len: int = 256,  # Set max_tokens to 256
-    temperature: float = 0.0,  # Set temperature to 0
+    top_p: float = 0.9,  # 使用 Top-p (nucleus sampling)
+    max_out_len: int = 256,  # 设置最大生成长度
+    temperature: float = 0.7,  # 设置温度
 ):
     """
-    Fast, parallelized auto-regressive text generation with top-k sampling.
+    Fast, parallelized auto-regressive text generation with nucleus sampling (Top-p).
     Our custom implementation.
     """
 
@@ -118,9 +118,16 @@ def generate_fast(
             logits, past_key_values = model_out.logits, model_out.past_key_values
             softmax_out = torch.nn.functional.softmax(logits[:, -1, :] / temperature, dim=1)
 
-            # Top-k sampling
-            tk = torch.topk(softmax_out, top_k, dim=1).indices
-            new_toks = tk[:, 0].unsqueeze(1)  # Select the highest probability token
+            sorted_logits, sorted_indices = torch.sort(softmax_out, descending=True, dim=1)
+            cumulative_probs = sorted_logits.cumsum(dim=1)
+            sorted_indices_to_remove = cumulative_probs > top_p
+            sorted_indices_to_remove[:, 1:] = sorted_indices_to_remove[:, :-1].clone()
+            sorted_indices_to_remove[:, 0] = 0
+
+            indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+            softmax_out = softmax_out.masked_fill(indices_to_remove, 0)
+            softmax_out = softmax_out / softmax_out.sum(1, keepdim=True)
+            new_toks = torch.multinomial(softmax_out, 1)
 
             # If we're currently generating the continuation for the last token in `input_ids`,
             # create a new index so we can insert the new token

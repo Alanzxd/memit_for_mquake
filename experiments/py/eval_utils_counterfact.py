@@ -225,8 +225,7 @@ def ask_model(model, tokenizer, prompt):
         [prompt],
         n_gen_per_prompt=1,
         max_out_len=50,
-        temperature=1, # 设置max_out_len值
-        top_k=1  # 设置top_k值
+        temperature=0.9 # 设置max_out_len值
     )
     generated_text = gen_texts[0].strip()
     return generated_text

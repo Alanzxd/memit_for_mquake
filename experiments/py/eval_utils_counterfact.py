@@ -199,18 +199,18 @@ def calculate_metrics(
             match = re.search(r"(Answer:|A:|A\.|Answer\.)\s*(.*)", generated_text, re.DOTALL)
             if match:
                 # 如果匹配到 Answer: 或 A: 或 A.，则答案为匹配行后的文本，可能跨行
-                generated_answer = generated_text.split("\n")[3] if len(generated_text.split("\n")) > 3 else "Null"
+                generated_answer = generated_text.split("\n")[4] if len(generated_text.split("\n")) > 4 else "Null A"
             else:
                 # 否则尝试提取第二行作为答案
                 lines = generated_text.split("\n")
-                if len(lines) > 1:
+                if len(lines) > 2:
                     generated_answer = lines[2].strip()
                 else:
-                    generated_answer = "Null"
+                    generated_answer = "Null B"
                     
             # 过滤无效答案
             if generated_answer == question or not generated_answer.strip():
-                generated_answer = "Null"
+                generated_answer = "Null C"
             generated_answers.append(generated_answer)
 
             # Debugging information

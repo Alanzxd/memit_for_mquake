@@ -181,15 +181,14 @@ def calculate_metrics(
 
     for question in questions:
         generated_text = ask_model(model, tokenizer, question)
-        answer = extract_answer(generated_text)
 
-        generated_answers.append(answer)
+        generated_answers.append(generated_text)
 
         # Debugging information
         print(f"Question: {question}")
-        print(f"Generated Text: {answer}")
+        print(f"Generated Text: {generated_text}")
 
-        if correct_answer.lower() in answer.lower() or any(alias.lower() in answer.lower() for alias in answer_aliases):
+        if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
             correct_responses += 1
 
     for rewrite in requested_rewrite:
@@ -225,41 +224,11 @@ def ask_model(model, tokenizer, prompt):
         tokenizer,
         [prompt],
         n_gen_per_prompt=1,
-        max_out_len=200, 
-        top_k=5  # 设置top-k值
+        max_out_len=256,  # 设置max_out_len值
+        top_k=5  # 设置top_k值
     )
     generated_text = gen_texts[0].strip()
     return generated_text
-
-def extract_answer(generated_text):
-    """
-    Extract the first sentence from the generated text after the question mark.
-    
-    :param generated_text: The input text.
-    :return: The extracted answer.
-    """
-    parts = generated_text.split('?', 1)
-    if len(parts) > 1:
-        answer = parts[1].strip()
-        if answer.lower().startswith('a.') or answer.lower().startswith('answer is.'):
-            # Skip to the next period if "A." or "Answer is." is found
-            answer = re.split(r'[.]', answer, 1)[-1].strip()
-        answer = extract_first_sentence(answer)
-    else:
-        answer = generated_text  # 如果找不到 '?', 返回所有生成的文本
-    return answer
-
-def extract_first_sentence(text):
-    """
-    Extract the first sentence from the text.
-    
-    :param text: The input text.
-    :return: The first sentence of the text.
-    """
-    sentence_end = re.search(r'[.]', text)
-    if sentence_end:
-        return text[:sentence_end.end()].strip()
-    return text.strip()
 
 
 

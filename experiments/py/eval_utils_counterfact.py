@@ -113,6 +113,7 @@ def compute_rewrite_quality_counterfact(
     return ret
 
 
+import re
 import torch
 import typing
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -180,9 +181,8 @@ def calculate_metrics(
 
     for question in questions:
         generated_text = ask_model(model, tokenizer, question)
-        
-        # 直接返回完整的生成答案
-        answer = generated_text
+        answer = extract_answer(generated_text)
+
         generated_answers.append(answer)
 
         # Debugging information
@@ -196,6 +196,7 @@ def calculate_metrics(
         prompt = rewrite['prompt'].format(rewrite['subject'])
         target_new = rewrite['target_new']['str']
         generated_text = ask_model(model, tokenizer, prompt)
+
         generated_answers.append(generated_text)
         
         if target_new.lower() in generated_text.lower():
@@ -224,10 +225,43 @@ def ask_model(model, tokenizer, prompt):
         tokenizer,
         [prompt],
         n_gen_per_prompt=1,
-        max_out_len=100,
+        max_out_len=150,
+        temperature=0.9,  # 设置温度
+        top_k=50  # 设置top-k值
     )
     generated_text = gen_texts[0].strip()
     return generated_text
+
+def extract_answer(generated_text):
+    """
+    Extract the first sentence from the generated text after the question mark.
+    
+    :param generated_text: The input text.
+    :return: The extracted answer.
+    """
+    parts = generated_text.split('?', 1)
+    if len(parts) > 1:
+        answer = parts[1].strip()
+        if answer.lower().startswith('a.') or answer.lower().startswith('answer is.'):
+            # Skip to the next period if "A." or "Answer is." is found
+            answer = re.split(r'[.]', answer, 1)[-1].strip()
+        answer = extract_first_sentence(answer)
+    else:
+        answer = generated_text  # 如果找不到 '?', 返回所有生成的文本
+    return answer
+
+def extract_first_sentence(text):
+    """
+    Extract the first sentence from the text.
+    
+    :param text: The input text.
+    :return: The first sentence of the text.
+    """
+    sentence_end = re.search(r'[.]', text)
+    if sentence_end:
+        return text[:sentence_end.end()].strip()
+    return text.strip()
+
 
 
 

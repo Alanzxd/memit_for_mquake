@@ -116,7 +116,7 @@ def compute_rewrite_quality_counterfact(
 import torch
 import typing
 from transformers import AutoModelForCausalLM, AutoTokenizer
-import numpy as np
+import re
 
 def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
@@ -191,19 +191,34 @@ def calculate_metrics(
             print(f"Input size {input_ids.size(1)} exceeds max position embeddings {model.config.max_position_embeddings}. Skipping.")
             continue
 
-        outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
+        outputs = model.generate(input_ids, max_length=50, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+
+        # Debugging information
+        print(f"Generated Text: {generated_text}")
 
         # 获取生成文本的回答部分，针对 multi-hop accuracy
         if question in questions:
-            generated_answer = generated_text.split("\n")[2] if len(generated_text.split("\n")) > 2 else ""
+            match = re.search(r"(Answer:|A:|A\.|Answer\.)\s*(.*)", generated_text, re.DOTALL)
+            if match:
+                # 如果匹配到 Answer: 或 A: 或 A.，则答案为匹配行后的文本，可能跨行
+                generated_answer = generated_text.split("\n")[3] if len(generated_text.split("\n")) > 3 else ""
+            else:
+                # 否则尝试提取第二行作为答案
+                lines = generated_text.split("\n")
+                if len(lines) > 1:
+                    generated_answer = lines[1].strip()
+                else:
+                    generated_answer = ""
+                    
+            # 过滤无效答案
             if generated_answer == question or not generated_answer.strip():
                 generated_answer = ""
             generated_answers.append(generated_answer)
 
             # Debugging information
             print(f"Question: {question}")
-            print(f"Generated Text: {generated_answer}")
+            print(f"Generated Answer: {generated_answer}")
 
             if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
                 correct_responses += 1
@@ -223,6 +238,7 @@ def calculate_metrics(
     instance_accuracy = 1 if all_facts_recalled else 0
 
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
+
 
 
 

@@ -191,7 +191,7 @@ def calculate_metrics(
             print(f"Input size {input_ids.size(1)} exceeds max position embeddings {model.config.max_position_embeddings}. Skipping.")
             continue
 
-        outputs = model.generate(input_ids, max_length=50, pad_token_id=tokenizer.eos_token_id)
+        outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
         # 获取生成文本的回答部分，针对 multi-hop accuracy

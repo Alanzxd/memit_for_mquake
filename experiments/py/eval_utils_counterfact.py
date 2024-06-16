@@ -194,6 +194,10 @@ def calculate_metrics(
         outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
+        
+        # 清空 CUDA 缓存
+        torch.cuda.empty_cache()
+        
         # 获取生成文本的回答部分，针对 multi-hop accuracy
         if question in questions:
             match = re.search(r"(Answer:|A:|A\.|Answer\.)\s*(.*)", generated_text, re.DOTALL)

@@ -116,8 +116,16 @@ def compute_rewrite_quality_counterfact(
 import torch
 import typing
 from transformers import AutoModelForCausalLM, AutoTokenizer
-import re
+import numpy as np
+import shutil
+import os
 
+def clear_torch_cache():
+    cache_dir = os.path.expanduser('~/.cache/torch/kernels')
+    if os.path.exists(cache_dir):
+        shutil.rmtree(cache_dir)
+        os.makedirs(cache_dir)
+        
 def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
@@ -190,13 +198,10 @@ def calculate_metrics(
         if input_ids.size(1) > model.config.max_position_embeddings:
             print(f"Input size {input_ids.size(1)} exceeds max position embeddings {model.config.max_position_embeddings}. Skipping.")
             continue
-
+        # 在调用 model.generate 之前清空缓存
+        clear_torch_cache()
         outputs = model.generate(input_ids, max_length=100, pad_token_id=tokenizer.eos_token_id)
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-
-        
-        # 清空 CUDA 缓存
-        torch.cuda.empty_cache()
         
         # 获取生成文本的回答部分，针对 multi-hop accuracy
         if question in questions:

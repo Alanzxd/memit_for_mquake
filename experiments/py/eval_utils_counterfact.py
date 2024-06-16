@@ -205,7 +205,7 @@ def calculate_metrics(
         
         # 获取生成文本的回答部分，针对 multi-hop accuracy
         if question in questions:
-            match = re.search(r"(Answer:|A:|A\.|Answer\.)\s*(.*)", generated_text, re.DOTALL)
+            match = re.search(r"(Answer:|A:|A\.|Answer\.|The answer is|Answer is:)\s*(.*)", generated_text, re.DOTALL)
             if match:
                 # 如果匹配到 Answer: 或 A: 或 A.，则答案为匹配行后的文本，可能跨行
                 generated_answer = generated_text.split("\n")[4] if len(generated_text.split("\n")) > 4 else "Null A"

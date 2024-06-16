@@ -74,22 +74,16 @@ def generate_interactive(
         print()
 
 
-import unicodedata
-from typing import List
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
 def generate_fast(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
     prompts: List[str],
     n_gen_per_prompt: int = 1,
-    top_p: float = 0.9,  # 使用 Top-p (nucleus sampling)
-    max_out_len: int = 256,  # 设置最大生成长度
-    temperature: float = 0.7,  # 设置温度
+    top_k: int = 5,
+    max_out_len: int = 200,
 ):
     """
-    Fast, parallelized auto-regressive text generation with nucleus sampling (Top-p).
+    Fast, parallelized auto-regressive text generation with top-k sampling.
     Our custom implementation.
     """
 
@@ -116,18 +110,14 @@ def generate_fast(
                 use_cache=True,
             )
             logits, past_key_values = model_out.logits, model_out.past_key_values
-            softmax_out = torch.nn.functional.softmax(logits[:, -1, :] / temperature, dim=1)
+            softmax_out = torch.nn.functional.softmax(logits[:, -1, :], dim=1)
 
-            sorted_logits, sorted_indices = torch.sort(softmax_out, descending=True, dim=1)
-            cumulative_probs = sorted_logits.cumsum(dim=1)
-            sorted_indices_to_remove = cumulative_probs > top_p
-            sorted_indices_to_remove[:, 1:] = sorted_indices_to_remove[:, :-1].clone()
-            sorted_indices_to_remove[:, 0] = 0
-
-            indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
-            softmax_out = softmax_out.masked_fill(indices_to_remove, 0)
-            softmax_out = softmax_out / softmax_out.sum(1, keepdim=True)
-            new_toks = torch.multinomial(softmax_out, 1)
+            # Top-k sampling
+            tk = torch.topk(softmax_out, top_k, dim=1).indices
+            softmax_out_top_k = torch.gather(softmax_out, 1, tk)
+            softmax_out_top_k = softmax_out_top_k / softmax_out_top_k.sum(1)[:, None]
+            new_tok_indices = torch.multinomial(softmax_out_top_k, 1)
+            new_toks = torch.gather(tk, 1, new_tok_indices)
 
             # If we're currently generating the continuation for the last token in `input_ids`,
             # create a new index so we can insert the new token
@@ -160,17 +150,8 @@ def generate_fast(
     txt = [
         unicodedata.normalize("NFKD", x)
         .replace("\n\n", " ")
-        .replace("", "")
+        .replace("<|endoftext|>", "")
         for x in txt
     ]
 
-    # Remove the prompt from the generated text to keep only the answer
-    answers = []
-    for prompt, text in zip(prompts, txt):
-        if text.startswith(prompt):
-            answer = text[len(prompt):].strip()
-            answers.append(answer)
-        else:
-            answers.append(text.strip())
-
-    return answers
+    return txt

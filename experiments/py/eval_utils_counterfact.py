@@ -123,8 +123,17 @@ import os
 def clear_torch_cache():
     cache_dir = os.path.expanduser('~/.cache/torch/kernels')
     if os.path.exists(cache_dir):
-        shutil.rmtree(cache_dir)
-        os.makedirs(cache_dir)
+        for item in os.listdir(cache_dir):
+            item_path = os.path.join(cache_dir, item)
+            try:
+                if os.path.islink(item_path):
+                    os.unlink(item_path)
+                elif os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+                else:
+                    os.remove(item_path)
+            except Exception as e:
+                print(f"Failed to remove {item_path}. Reason: {e}")
         
 def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,

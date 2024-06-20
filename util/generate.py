@@ -74,6 +74,11 @@ def generate_interactive(
         print()
 
 
+import unicodedata
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from typing import List
+
 def generate_fast(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
@@ -92,7 +97,7 @@ def generate_fast(
     inp_tok = tok(inp, padding=True, return_tensors="pt").to(
         next(model.parameters()).device
     )
-    input_ids, attention_mask = inp_tok["input_ids"], inp_tok["attention_mask"]
+    input_ids, attention_mask = inp_tok["input_ids"].contiguous(), inp_tok["attention_mask"].contiguous()
     batch_size = input_ids.size(0)
 
     # Setup storage of fast generation with attention caches.
@@ -104,8 +109,8 @@ def generate_fast(
     with torch.no_grad():
         while input_ids.size(1) < max_out_len:  # while not exceeding max output length
             model_out = model(
-                input_ids=input_ids[:, cur_context],
-                attention_mask=attention_mask[:, cur_context],
+                input_ids=input_ids[:, cur_context].contiguous(),
+                attention_mask=attention_mask[:, cur_context].contiguous(),
                 past_key_values=past_key_values,
                 use_cache=True,
             )
@@ -124,14 +129,14 @@ def generate_fast(
             if cur_context.stop == input_ids.size(1):
                 attention_mask = torch.cat(
                     [attention_mask, attention_mask.new_zeros(batch_size, 1)], dim=1
-                )
+                ).contiguous()
                 input_ids = torch.cat(
                     [
                         input_ids,
                         input_ids.new_ones(batch_size, 1) * tok.pad_token_id,
                     ],
                     dim=1,
-                )
+                ).contiguous()
 
             last_non_masked = attention_mask.sum(1) - 1
             for i in range(batch_size):
@@ -150,7 +155,7 @@ def generate_fast(
     txt = [
         unicodedata.normalize("NFKD", x)
         .replace("\n\n", " ")
-        .replace("<|endoftext|>", "")
+        .replace("", "")
         for x in txt
     ]
 

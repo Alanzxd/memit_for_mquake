@@ -9,7 +9,7 @@ from util.globals import *
 
 REMOTE_ROOT = f"{REMOTE_ROOT_URL}/data/dsets"
 
-class MQuAKE-T(Dataset):
+class MQuAKE_T(Dataset):
     """
     Dataset class for loading MQuAKE-CF data.
     """

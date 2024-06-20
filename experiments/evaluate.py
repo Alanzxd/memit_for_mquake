@@ -16,6 +16,7 @@ from dsets import (
     MultiCounterFactDataset,
     get_tfidf_vectorizer,
     MQuAKEDataset_CF_3k,
+    MQuAKE-T,
 )
 from experiments.py.eval_utils_counterfact import compute_rewrite_quality_counterfact, compute_rewrite_quality_mquake
 from experiments.py.eval_utils_zsre import compute_rewrite_quality_zsre

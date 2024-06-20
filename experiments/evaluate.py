@@ -23,7 +23,7 @@ from memit import MEMITHyperParams, apply_memit_to_model
 from rome import ROMEHyperParams, apply_rome_to_model
 from util import nethook
 from util.globals import *
-
+import os
 ALG_DICT = {
     "MEMIT": (MEMITHyperParams, apply_memit_to_model),
     "ROME": (ROMEHyperParams, apply_rome_to_model),
@@ -256,7 +256,8 @@ def chunks(arr, n):
 
 if __name__ == "__main__":
     import argparse
-
+    # 设置自定义缓存目录
+    os.environ['HF_HOME'] = '/scratch/xz3645/huggingface_cache'
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--alg_name",

@@ -96,6 +96,7 @@ def main(
     if type(model_name) is str:
         print("Instantiating model")
         model = AutoModelForCausalLM.from_pretrained(model_name).cuda()
+        print(model)
         tok = AutoTokenizer.from_pretrained(model_name)
         tok.pad_token = tok.eos_token
     else:

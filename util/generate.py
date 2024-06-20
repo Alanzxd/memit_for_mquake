@@ -101,9 +101,6 @@ def generate_fast(
     batch_size = input_ids.size(0)
 
     # Setup storage of fast generation with attention caches.
-    # `cur_context` is used to define the range of inputs that are not yet
-    # stored in `past_key_values`. At each step, we are generating the
-    # next token for the index at `cur_context.stop + 1`.
     past_key_values, cur_context = None, slice(0, attention_mask.sum(1).min().item())
 
     with torch.no_grad():
@@ -118,11 +115,11 @@ def generate_fast(
             softmax_out = torch.nn.functional.softmax(logits[:, -1, :], dim=1)
 
             # Top-k sampling
-            tk = torch.topk(softmax_out, top_k, dim=1).indices
-            softmax_out_top_k = torch.gather(softmax_out, 1, tk)
+            tk = torch.topk(softmax_out, top_k, dim=1).indices.contiguous()
+            softmax_out_top_k = torch.gather(softmax_out, 1, tk).contiguous()
             softmax_out_top_k = softmax_out_top_k / softmax_out_top_k.sum(1)[:, None]
-            new_tok_indices = torch.multinomial(softmax_out_top_k, 1)
-            new_toks = torch.gather(tk, 1, new_tok_indices)
+            new_tok_indices = torch.multinomial(softmax_out_top_k, 1).contiguous()
+            new_toks = torch.gather(tk, 1, new_tok_indices).contiguous()
 
             # If we're currently generating the continuation for the last token in `input_ids`,
             # create a new index so we can insert the new token

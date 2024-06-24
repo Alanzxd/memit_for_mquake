@@ -18,6 +18,7 @@ from dsets import (
     MQuAKEDataset_CF_3k,
     MQuAKE_T,
     MQuAKE_2002,
+    MQuAKE_hard,
 )
 from experiments.py.eval_utils_counterfact import compute_rewrite_quality_counterfact, compute_rewrite_quality_mquake
 from experiments.py.eval_utils_zsre import compute_rewrite_quality_zsre
@@ -41,6 +42,7 @@ DS_DICT = {
     "mquake_cf_3k": (MQuAKEDataset_CF_3k, compute_rewrite_quality_mquake),
     "mquake_t": (MQuAKE_T, compute_rewrite_quality_mquake),
     "mquake_2002": (MQuAKE_2002, compute_rewrite_quality_mquake),
+    "mquake_hard": (MQuAKE_hard, compute_rewrite_quality_mquake),
 }
 
 
@@ -124,6 +126,9 @@ def main(
         ds_eval_method = compute_rewrite_quality_mquake  # 使用 MQuAKE 的评估方法
     elif ds_name == "mquake_2002":
         ds = MQuAKE_2002(DATA_DIR, tok=tok, size=dataset_size_limit)  # 加载 MQuAKE 数据集
+        ds_eval_method = compute_rewrite_quality_mquake  # 使用 MQuAKE 的评估方法
+    elif ds_name == "mquake_hard":
+        ds = MQuAKE_hard(DATA_DIR, tok=tok, size=dataset_size_limit)  # 加载 MQuAKE 数据集
         ds_eval_method = compute_rewrite_quality_mquake  # 使用 MQuAKE 的评估方法
     else:
         # 对于其他数据集，从 DS_DICT 中获取类和评估方法
@@ -295,7 +300,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--ds_name",
-        choices=["mcf", "cf", "zsre", "mquake_cf_3k","mquake_t","mquake_2002"],
+        choices=["mcf", "cf", "zsre", "mquake_cf_3k","mquake_t","mquake_2002","mquake_hard"],
         default="mcf",
         help="Dataset to perform evaluations on. Either CounterFact (cf), MultiCounterFact (mcf), or zsRE (zsre).",
     )

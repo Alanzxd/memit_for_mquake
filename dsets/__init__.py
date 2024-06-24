@@ -6,3 +6,4 @@ from .zsre import MENDQADataset
 from .mquake_CF_3k import MQuAKEDataset_CF_3k  # 添加这行来导入你的新数据集类
 from .MQuAKE_T import MQuAKE_T  # 添加这行来导入你的新数据集类
 from .mquake_2002 import MQuAKE_2002 # 添加这行来导入你的新数据集类
+from .MQuAKE_hard import MQuAKE_hard  # 添加这行来导入你的新数据集类

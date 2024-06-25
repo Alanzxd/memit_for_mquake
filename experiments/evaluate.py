@@ -145,7 +145,13 @@ def main(
             / f"{ds_name}_layer_{{}}_clamp_{{}}_case_{{}}.npz"
         )
         print(f"Will load cache from {cache_template}")
-        
+        # 记录第一个batch的模型
+    first_batch_model = None
+    
+    # 新文件夹路径
+    new_results_dir = run_dir / "first_batch_evaluation"/num_edits
+    new_results_dir.mkdir(parents=True, exist_ok=True)
+
     # Iterate through dataset
     for record_chunks in chunks(ds, num_edits):
         case_result_template = str(run_dir / "{}_edits-case_{}.json")
@@ -195,21 +201,30 @@ def main(
                 rewrite['attention_mask'] = attention_mask
             
             return apply_algo(model, tok, rewrites, hparams, **kwargs)
-        
-        # Apply the algorithm
-        start = time()
-        edited_model, weights_copy = apply_algo_with_device(
-            model,
-            tok,
-            flattened_rewrites,
-            hparams,
-            copy=False,
-            return_orig_weights=True,
-            **args_conserve_memory,
-            **etc_args,
-        )
-        exec_time = time() - start
-        print("Execution took", exec_time)
+         # Apply the algorithm if num_edits > 0
+        if num_edits > 0:
+            
+            # Apply the algorithm
+            start = time()
+            edited_model, weights_copy = apply_algo_with_device(
+                model,
+                tok,
+                flattened_rewrites,
+                hparams,
+                copy=False,
+                return_orig_weights=True,
+                **args_conserve_memory,
+                **etc_args,
+            )
+            exec_time = time() - start
+            print("Execution took", exec_time)
+        else:
+            edited_model = model
+            exec_time = 0
+            weights_copy = None
+        # 记录第一个batch的模型
+        if i == 0:
+            first_batch_model = edited_model
 
         print("---------------------------------------------------------------------------------------------------------")
         print("---------------------------------------------------------------------------------------------------------")
@@ -250,7 +265,45 @@ def main(
                 nethook.get_parameter(model, k)[...] = v.to("cuda")
 
         print("Evaluation took", time() - start)
+        
+# 使用第一个batch的模型评估所有数据
+if first_batch_model is not None:
+    print("Evaluating all data with the first batch model...")
+    for record_chunks in chunks(ds, num_edits):
+        case_result_template = str(new_results_dir / "{}_edits-case_{}.json")
 
+        # Evaluate new model
+        start = time()
+        gen_test_vars = [snips, vec]
+        for record in record_chunks:
+            out_file = Path(case_result_template.format(num_edits, record["case_id"]))
+            if out_file.exists():
+                print(f"Skipping {out_file}; already exists")
+                continue
+
+            metrics = {
+                "case_id": record["case_id"],
+                "grouped_case_ids": case_ids,
+                "num_edits": num_edits,
+                "requested_rewrite": record["requested_rewrite"],
+                "time": exec_time,
+                "post": ds_eval_method(
+                    first_batch_model,
+                    tok,
+                    record,
+                    *(
+                        gen_test_vars
+                        if record["case_id"] % generation_test_interval == 0
+                        else [None, None]
+                    ),  # Only test generation every generation_test_interval cases
+                ),
+            }
+
+            # Dump metrics in .json
+            with open(out_file, "w") as f:
+                json.dump(metrics, f, indent=1)
+
+        print("Evaluation took", time() - start)
 
 def window(seq, n=2):
     "Returns a sliding window (of width n) over data from the iterable"

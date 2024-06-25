@@ -209,7 +209,15 @@ def calculate_metrics(
             continue
         # 在调用 model.generate 之前清空缓存
         clear_torch_cache()
-        outputs = model.generate(input_ids, max_length=50, pad_token_id=tokenizer.eos_token_id)
+        #outputs = model.generate(input_ids, max_length=50, pad_token_id=tokenizer.eos_token_id)
+        outputs = model.generate(
+            input_ids,
+            max_length=200,  # 设置最大输出长度
+            pad_token_id=tokenizer.eos_token_id,
+            do_sample=True,  # 启用采样
+            top_k=5,  # 设置top-k采样参数
+            num_return_sequences=1  # 设置返回的序列数量
+        )
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         
         # 获取生成文本的回答部分，针对 multi-hop accuracy

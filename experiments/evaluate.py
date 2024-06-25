@@ -267,7 +267,7 @@ def main(
         print("Evaluation took", time() - start)
         
 # 使用第一个batch的模型评估所有数据
-if first_batch_model is not None:
+if first_batch_model is not None and num_edits in [1, 100, 1000]:
     print("Evaluating all data with the first batch model...")
     for record_chunks in chunks(ds, num_edits):
         case_result_template = str(new_results_dir / "{}_edits-case_{}.json")

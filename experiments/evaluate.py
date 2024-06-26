@@ -154,6 +154,8 @@ def main(
 
     # Iterate through dataset
     for record_chunks in chunks(ds, num_edits):
+        if num_edits=0:
+            break
         case_result_template = str(run_dir / "{}_edits-case_{}.json")
 
         # Is the chunk already done?
@@ -289,6 +291,45 @@ if first_batch_model is not None and num_edits in [1, 100, 1000]:
                 "time": exec_time,
                 "post": ds_eval_method(
                     first_batch_model,
+                    tok,
+                    record,
+                    *(
+                        gen_test_vars
+                        if record["case_id"] % generation_test_interval == 0
+                        else [None, None]
+                    ),  # Only test generation every generation_test_interval cases
+                ),
+            }
+
+            # Dump metrics in .json
+            with open(out_file, "w") as f:
+                json.dump(metrics, f, indent=1)
+
+        print("Evaluation took", time() - start)
+
+# 在num_edits=0时，用未修改的模型对所有数据进行评估
+if num_edits == 0:
+    print("Evaluating all data with the original model...")
+    for record_chunks in chunks(ds, 1):  # 这里设置为1以便逐个评估
+        case_result_template = str(new_results_dir / "original_model_case_{}.json")
+
+        # Evaluate new model
+        start = time()
+        gen_test_vars = [snips, vec]
+        for record in record_chunks:
+            out_file = Path(case_result_template.format(record["case_id"]))
+            if out_file.exists():
+                print(f"Skipping {out_file}; already exists")
+                continue
+
+            metrics = {
+                "case_id": record["case_id"],
+                "grouped_case_ids": [record["case_id"]],
+                "num_edits": num_edits,
+                "requested_rewrite": record["requested_rewrite"],
+                "time": exec_time,
+                "post": ds_eval_method(
+                    model,
                     tok,
                     record,
                     *(

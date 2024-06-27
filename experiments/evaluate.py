@@ -154,7 +154,7 @@ def main(
 
     # Iterate through dataset
     for record_chunks in chunks(ds, num_edits):
-        if num_edits=0:
+        if num_edits==0:
             break
         case_result_template = str(run_dir / "{}_edits-case_{}.json")
 

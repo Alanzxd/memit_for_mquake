@@ -20,7 +20,7 @@ from dsets import (
     MQuAKE_2002,
     MQuAKE_hard,
 )
-from experiments.py.eval_utils_counterfact import compute_rewrite_quality_counterfact
+from experiments.py.eval_utils_counterfact import compute_rewrite_quality_counterfact, compute_rewrite_quality_mquake
 from experiments.py.eval_utils_zsre import compute_rewrite_quality_zsre
 from memit import MEMITHyperParams, apply_memit_to_model
 from rome import ROMEHyperParams, apply_rome_to_model

@@ -3,7 +3,7 @@ import shutil
 from itertools import islice
 from time import time
 from typing import Tuple, Union
-
+import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -26,13 +26,12 @@ from memit import MEMITHyperParams, apply_memit_to_model
 from rome import ROMEHyperParams, apply_rome_to_model
 from util import nethook
 from util.globals import *
-import os
+
 ALG_DICT = {
     "MEMIT": (MEMITHyperParams, apply_memit_to_model),
     "ROME": (ROMEHyperParams, apply_rome_to_model),
     "FT": (FTHyperParams, apply_ft_to_model),
     "MEND": (MENDHyperParams, MendRewriteExecutor().apply_to_model),
-
 }
 
 DS_DICT = {
@@ -44,7 +43,6 @@ DS_DICT = {
     "mquake_2002": (MQuAKE_2002, compute_rewrite_quality_mquake),
     "mquake_hard": (MQuAKE_hard, compute_rewrite_quality_mquake),
 }
-
 
 def main(
     alg_name: str,
@@ -114,26 +112,9 @@ def main(
     snips = AttributeSnippets(DATA_DIR) if not skip_generation_tests else None
     vec = get_tfidf_vectorizer(DATA_DIR) if not skip_generation_tests else None
 
-    if num_edits > 1:
-        assert ds_name != "cf" or "mquake_cf_3k", f"{ds_name} does not support multiple edits"
-    
-    # 在主函数中，根据 ds_name 选择数据集和评估方法
-    if ds_name == "mquake_cf_3k":  # 检查是否使用 MQuAKE 数据集
-        ds = MQuAKEDataset_CF_3k(DATA_DIR, tok=tok, size=dataset_size_limit)  # 加载 MQuAKE 数据集
-        ds_eval_method = compute_rewrite_quality_mquake  # 使用 MQuAKE 的评估方法
-    elif ds_name == "mquake_t":
-        ds = MQuAKE_T(DATA_DIR, tok=tok, size=dataset_size_limit)  # 加载 MQuAKE 数据集
-        ds_eval_method = compute_rewrite_quality_mquake  # 使用 MQuAKE 的评估方法
-    elif ds_name == "mquake_2002":
-        ds = MQuAKE_2002(DATA_DIR, tok=tok, size=dataset_size_limit)  # 加载 MQuAKE 数据集
-        ds_eval_method = compute_rewrite_quality_mquake  # 使用 MQuAKE 的评估方法
-    elif ds_name == "mquake_hard":
-        ds = MQuAKE_hard(DATA_DIR, tok=tok, size=dataset_size_limit)  # 加载 MQuAKE 数据集
-        ds_eval_method = compute_rewrite_quality_mquake  # 使用 MQuAKE 的评估方法
-    else:
-        # 对于其他数据集，从 DS_DICT 中获取类和评估方法
-        ds_class, ds_eval_method = DS_DICT[ds_name]
-        ds = ds_class(DATA_DIR, tok=tok, size=dataset_size_limit)
+    # Load dataset and evaluation method
+    ds_class, ds_eval_method = DS_DICT[ds_name]
+    ds = ds_class(DATA_DIR, tok=tok, size=dataset_size_limit)
 
     # Get cache templates
     cache_template = None
@@ -145,25 +126,25 @@ def main(
             / f"{ds_name}_layer_{{}}_clamp_{{}}_case_{{}}.npz"
         )
         print(f"Will load cache from {cache_template}")
-        # 记录第一个batch的模型
+
+    # 记录第一个batch的模型
     first_batch_model = None
     
     # 新文件夹路径
-    new_results_dir = run_dir / "first_batch_evaluation"/num_edits
+    new_results_dir = run_dir / "first_batch_evaluation" / str(num_edits)
     new_results_dir.mkdir(parents=True, exist_ok=True)
 
     # Iterate through dataset
-    for record_chunks in chunks(ds, num_edits):
-        if num_edits==0:
+    for i, record_chunks in enumerate(chunks(ds, num_edits)):
+        if num_edits == 0:
             break
+
         case_result_template = str(run_dir / "{}_edits-case_{}.json")
 
         # Is the chunk already done?
         already_finished = True
         for record in record_chunks:
-            if not Path(
-                case_result_template.format(num_edits, record["case_id"])
-            ).exists():
+            if not Path(case_result_template.format(num_edits, record["case_id"])).exists():
                 already_finished = False
                 break
         if already_finished:
@@ -203,10 +184,9 @@ def main(
                 rewrite['attention_mask'] = attention_mask
             
             return apply_algo(model, tok, rewrites, hparams, **kwargs)
-         # Apply the algorithm if num_edits > 0
+        
+        # Apply the algorithm if num_edits > 0
         if num_edits > 0:
-            
-            # Apply the algorithm
             start = time()
             edited_model, weights_copy = apply_algo_with_device(
                 model,
@@ -224,12 +204,14 @@ def main(
             edited_model = model
             exec_time = 0
             weights_copy = None
+
         # 记录第一个batch的模型
-        if i == 0:
+        if i == 0 and num_edits > 0:
             first_batch_model = edited_model
 
         print("---------------------------------------------------------------------------------------------------------")
         print("---------------------------------------------------------------------------------------------------------")
+        
         # Evaluate new model
         start = time()
         gen_test_vars = [snips, vec]
@@ -262,12 +244,13 @@ def main(
                 json.dump(metrics, f, indent=1)
 
         # Restore original weights
-        with torch.no_grad():
-            for k, v in weights_copy.items():
-                nethook.get_parameter(model, k)[...] = v.to("cuda")
+        if num_edits > 0:
+            with torch.no_grad():
+                for k, v in weights_copy.items():
+                    nethook.get_parameter(model, k)[...] = v.to("cuda")
 
         print("Evaluation took", time() - start)
-        
+    
     # 使用第一个batch的模型评估所有数据
     if first_batch_model is not None and num_edits in [1, 100, 1000]:
         print("Evaluating all data with the first batch model...")
@@ -357,12 +340,10 @@ def window(seq, n=2):
         result = result[1:] + (elem,)
         yield result
 
-
 def chunks(arr, n):
     """Yield successive n-sized chunks from arr."""
     for i in range(0, len(arr), n):
         yield arr[i : i + n]
-
 
 if __name__ == "__main__":
     import argparse

@@ -3,7 +3,7 @@ import shutil
 from itertools import islice
 from time import time
 from typing import Tuple, Union
-import os
+
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -20,7 +20,7 @@ from dsets import (
     MQuAKE_2002,
     MQuAKE_hard,
 )
-from experiments.py.eval_utils_counterfact import compute_rewrite_quality_counterfact, compute_rewrite_quality_mquake
+from experiments.py.eval_utils_counterfact import compute_rewrite_quality_counterfact
 from experiments.py.eval_utils_zsre import compute_rewrite_quality_zsre
 from memit import MEMITHyperParams, apply_memit_to_model
 from rome import ROMEHyperParams, apply_rome_to_model
@@ -44,6 +44,7 @@ DS_DICT = {
     "mquake_hard": (MQuAKE_hard, compute_rewrite_quality_mquake),
 }
 
+
 def main(
     alg_name: str,
     model_name: Union[str, Tuple],
@@ -63,11 +64,9 @@ def main(
 
     # Determine run directory
     # Create new dir if not continuing from prev run OR prev run doesn't exist
-    # 获取当前工作目录
-    current_dir = Path.cwd()
     if (
         continue_from_run is None
-        or not (run_dir := current_dir / RESULTS_DIR / dir_name / continue_from_run).exists()
+        or not (run_dir := RESULTS_DIR / dir_name / continue_from_run).exists()
     ):
         continue_from_run = None
     if continue_from_run is None:
@@ -81,7 +80,7 @@ def main(
             run_id = 0 if not id_list else max(id_list) + 1
         else:
             run_id = 0
-        run_dir = current_dir / RESULTS_DIR / dir_name / f"run_{str(run_id).zfill(3)}"
+        run_dir = RESULTS_DIR / dir_name / f"run_{str(run_id).zfill(3)}"
         run_dir.mkdir(parents=True, exist_ok=True)
     print(f"Results will be stored at {run_dir}")
 
@@ -100,7 +99,6 @@ def main(
     if type(model_name) is str:
         print("Instantiating model")
         model = AutoModelForCausalLM.from_pretrained(model_name).cuda()
-        print(model)
         tok = AutoTokenizer.from_pretrained(model_name)
         tok.pad_token = tok.eos_token
     else:
@@ -112,13 +110,29 @@ def main(
     snips = AttributeSnippets(DATA_DIR) if not skip_generation_tests else None
     vec = get_tfidf_vectorizer(DATA_DIR) if not skip_generation_tests else None
 
-    # Load dataset and evaluation method
-    ds_class, ds_eval_method = DS_DICT[ds_name]
-    ds = ds_class(DATA_DIR, tok=tok, size=dataset_size_limit)
+    if num_edits > 1:
+        assert ds_name != "cf", f"{ds_name} does not support multiple edits"
+        
+    # 在主函数中，根据 ds_name 选择数据集和评估方法
+    if ds_name == "mquake_cf_3k":  # 检查是否使用 MQuAKE 数据集
+        ds = MQuAKEDataset_CF_3k(DATA_DIR, tok=tok, size=dataset_size_limit)  # 加载 MQuAKE 数据集
+        ds_eval_method = compute_rewrite_quality_mquake  # 使用 MQuAKE 的评估方法
+    elif ds_name == "mquake_t":
+        ds = MQuAKE_T(DATA_DIR, tok=tok, size=dataset_size_limit)  # 加载 MQuAKE 数据集
+        ds_eval_method = compute_rewrite_quality_mquake  # 使用 MQuAKE 的评估方法
+    elif ds_name == "mquake_2002":
+        ds = MQuAKE_2002(DATA_DIR, tok=tok, size=dataset_size_limit)  # 加载 MQuAKE 数据集
+        ds_eval_method = compute_rewrite_quality_mquake  # 使用 MQuAKE 的评估方法
+    elif ds_name == "mquake_hard":
+        ds = MQuAKE_hard(DATA_DIR, tok=tok, size=dataset_size_limit)  # 加载 MQuAKE 数据集
+        ds_eval_method = compute_rewrite_quality_mquake  # 使用 MQuAKE 的评估方法
+    else:
+        # 对于其他数据集，从 DS_DICT 中获取类和评估方法
+        ds_class, ds_eval_method = DS_DICT[ds_name]
+        ds = ds_class(DATA_DIR, tok=tok, size=dataset_size_limit)
 
     # Get cache templates
     cache_template = None
-    KV_DIR = Path.cwd() / "cache"
     if use_cache:
         cache_template = (
             KV_DIR
@@ -127,24 +141,16 @@ def main(
         )
         print(f"Will load cache from {cache_template}")
 
-    # 记录第一个batch的模型
-    first_batch_model = None
-    
-    # 新文件夹路径
-    new_results_dir = run_dir / "first_batch_evaluation" / str(num_edits)
-    new_results_dir.mkdir(parents=True, exist_ok=True)
-
     # Iterate through dataset
-    for i, record_chunks in enumerate(chunks(ds, num_edits)):
-        if num_edits == 0:
-            break
-
+    for record_chunks in chunks(ds, num_edits):
         case_result_template = str(run_dir / "{}_edits-case_{}.json")
 
         # Is the chunk already done?
         already_finished = True
         for record in record_chunks:
-            if not Path(case_result_template.format(num_edits, record["case_id"])).exists():
+            if not Path(
+                case_result_template.format(num_edits, record["case_id"])
+            ).exists():
                 already_finished = False
                 break
         if already_finished:
@@ -159,59 +165,23 @@ def main(
         )
         etc_args = dict(cache_template=cache_template) if any(alg in alg_name for alg in ["ROME", "MEMIT"]) else dict()
 
-        # Ensure the model is on the correct device
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model.to(device)
-        
-        # Print the record and requested rewrite for debugging
-        print('record', record)
-        print('requested rewrite', record["requested_rewrite"])
-        
-        # Flatten the requested_rewrite structures within each record
-        flattened_rewrites = [
-            {"case_id": record["case_id"], **rw}
-            for record in record_chunks
-            for rw in record["requested_rewrite"]
-        ]
-        
-        # Function to apply the algorithm and handle device placement
-        def apply_algo_with_device(model, tok, rewrites, hparams, **kwargs):
-            for rewrite in rewrites:
-                input_text = rewrite['prompt'].format(rewrite['subject'])
-                input_ids = tok.encode(input_text, return_tensors='pt').to(device)
-                attention_mask = input_ids.ne(tok.pad_token_id).to(device)
-                rewrite['input_ids'] = input_ids
-                rewrite['attention_mask'] = attention_mask
-            
-            return apply_algo(model, tok, rewrites, hparams, **kwargs)
-        
-        # Apply the algorithm if num_edits > 0
-        if num_edits > 0:
-            start = time()
-            edited_model, weights_copy = apply_algo_with_device(
-                model,
-                tok,
-                flattened_rewrites,
-                hparams,
-                copy=False,
-                return_orig_weights=True,
-                **args_conserve_memory,
-                **etc_args,
-            )
-            exec_time = time() - start
-            print("Execution took", exec_time)
-        else:
-            edited_model = model
-            exec_time = 0
-            weights_copy = None
+        start = time()
+        edited_model, weights_copy = apply_algo(
+            model,
+            tok,
+            [
+                {"case_id": record["case_id"], **record["requested_rewrite"]}
+                for record in record_chunks
+            ],
+            hparams,
+            copy=False,
+            return_orig_weights=True,
+            **args_conserve_memory,
+            **etc_args,
+        )
+        exec_time = time() - start
+        print("Execution took", exec_time)
 
-        # 记录第一个batch的模型
-        if i == 0 and num_edits > 0:
-            first_batch_model = edited_model
-
-        print("---------------------------------------------------------------------------------------------------------")
-        print("---------------------------------------------------------------------------------------------------------")
-        
         # Evaluate new model
         start = time()
         gen_test_vars = [snips, vec]
@@ -244,90 +214,12 @@ def main(
                 json.dump(metrics, f, indent=1)
 
         # Restore original weights
-        if num_edits > 0:
-            with torch.no_grad():
-                for k, v in weights_copy.items():
-                    nethook.get_parameter(model, k)[...] = v.to("cuda")
+        with torch.no_grad():
+            for k, v in weights_copy.items():
+                nethook.get_parameter(model, k)[...] = v.to("cuda")
 
         print("Evaluation took", time() - start)
-    
-    # 使用第一个batch的模型评估所有数据
-    if first_batch_model is not None and num_edits in [1, 100, 1000]:
-        print("Evaluating all data with the first batch model...")
-        for record_chunks in chunks(ds, num_edits):
-            case_result_template = str(new_results_dir / "{}_edits-case_{}.json")
-    
-            # Evaluate new model
-            start = time()
-            gen_test_vars = [snips, vec]
-            for record in record_chunks:
-                out_file = Path(case_result_template.format(num_edits, record["case_id"]))
-                if out_file.exists():
-                    print(f"Skipping {out_file}; already exists")
-                    continue
-    
-                metrics = {
-                    "case_id": record["case_id"],
-                    "grouped_case_ids": case_ids,
-                    "num_edits": num_edits,
-                    "requested_rewrite": record["requested_rewrite"],
-                    "time": exec_time,
-                    "post": ds_eval_method(
-                        first_batch_model,
-                        tok,
-                        record,
-                        *(
-                            gen_test_vars
-                            if record["case_id"] % generation_test_interval == 0
-                            else [None, None]
-                        ),  # Only test generation every generation_test_interval cases
-                    ),
-                }
-    
-                # Dump metrics in .json
-                with open(out_file, "w") as f:
-                    json.dump(metrics, f, indent=1)
-    
-            print("Evaluation took", time() - start)
-    
-    # 在num_edits=0时，用未修改的模型对所有数据进行评估
-    if num_edits == 0:
-        print("Evaluating all data with the original model...")
-        for record_chunks in chunks(ds, 1):  # 这里设置为1以便逐个评估
-            case_result_template = str(new_results_dir / "original_model_case_{}.json")
-    
-            # Evaluate new model
-            start = time()
-            gen_test_vars = [snips, vec]
-            for record in record_chunks:
-                out_file = Path(case_result_template.format(record["case_id"]))
-                if out_file.exists():
-                    print(f"Skipping {out_file}; already exists")
-                    continue
-    
-                metrics = {
-                    "case_id": record["case_id"],
-                    "grouped_case_ids": [record["case_id"]],
-                    "num_edits": num_edits,
-                    "requested_rewrite": record["requested_rewrite"],
-                    "time": exec_time,
-                    "post": ds_eval_method(
-                        model,
-                        tok,
-                        record,
-                        *(
-                            gen_test_vars
-                            if record["case_id"] % generation_test_interval == 0
-                            else [None, None]
-                        ),  # Only test generation every generation_test_interval cases
-                    ),
-                }
-    
-                # Dump metrics in .json
-                with open(out_file, "w") as f:
-                    json.dump(metrics, f, indent=1)
-    
-            print("Evaluation took", time() - start)
+
 
 def window(seq, n=2):
     "Returns a sliding window (of width n) over data from the iterable"
@@ -340,15 +232,16 @@ def window(seq, n=2):
         result = result[1:] + (elem,)
         yield result
 
+
 def chunks(arr, n):
     """Yield successive n-sized chunks from arr."""
     for i in range(0, len(arr), n):
         yield arr[i : i + n]
 
+
 if __name__ == "__main__":
     import argparse
-    # 设置自定义缓存目录
-    os.environ['HF_HOME'] = '/scratch/xz3645/huggingface_cache'
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--alg_name",
@@ -361,7 +254,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--model_name",
-        choices=["gpt2-medium", "gpt2-large", "gpt2-xl", "EleutherAI/gpt-j-6B", "EleutherAI/gpt-j-6B", "lmsys/vicuna-7b-v1.5"],
+        choices=["gpt2-medium", "gpt2-large", "gpt2-xl", "EleutherAI/gpt-j-6B"],
         default="gpt2-xl",
         help="Model to edit.",
         required=True,

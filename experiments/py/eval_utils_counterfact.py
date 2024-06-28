@@ -195,48 +195,19 @@ def calculate_metrics(
     requested_rewrite = record['requested_rewrite']
 
     for question in questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
-        input_ids = tokenizer.encode(question, return_tensors="pt").to(model.device)
-
-        # 确保 input_ids 是 Long 类型
-        input_ids = input_ids.long()
-
-        # Check input tensor dimensions
-        print(f"Input IDs shape: {input_ids.shape}")
-
-        # Ensure input size is within model limits
-        if input_ids.size(1) > model.config.max_position_embeddings:
-            print(f"Input size {input_ids.size(1)} exceeds max position embeddings {model.config.max_position_embeddings}. Skipping.")
-            continue
-        # 在调用 model.generate 之前清空缓存
-        clear_torch_cache()
-        #outputs = model.generate(input_ids, max_length=50, pad_token_id=tokenizer.eos_token_id)
-        outputs = model.generate(
-            input_ids,
-            max_length=200,  # 设置最大输出长度
-            pad_token_id=tokenizer.eos_token_id,
-            do_sample=True,  # 启用采样
-            top_k=5,  # 设置top-k采样参数
-            num_return_sequences=1  # 设置返回的序列数量
-        )
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        
+        # 使用 generate_fast 函数生成答案
+        generated_text = generate_fast(model, tokenizer, [question], max_out_len=200, top_k=5)[0]
+        generated_answer=generated_text
         # 获取生成文本的回答部分，针对 multi-hop accuracy
         if question in questions:
-            match = re.search(r"(Answer:|A:|A\.|Answer\.|The answer is|Answer is:)\s*(.*)", generated_text, re.DOTALL)
-            if match:
-                # 如果匹配到 Answer: 或 A: 或 A.，则答案为匹配行后的文本，可能跨行
-                generated_answer = generated_text.split("\n")[4] if len(generated_text.split("\n")) > 4 else "Null A"
-            else:
-                # 否则尝试提取第二行作为答案
-                lines = generated_text.split("\n")
-                if len(lines) > 2:
-                    generated_answer = lines[2].strip()
-                else:
-                    generated_answer = "Null B"
-                    
-            # 过滤无效答案
-            if generated_answer == question or not generated_answer.strip():
-                generated_answer = "Null C"
+            # 以问号截断，取第一个问号后的部分
+            '''answer_parts = generated_answer.split('?')
+            if len(answer_parts) > 1:
+                generated_answer = answer_parts[1].strip()
+            answer_parts = generated_answer.split('.')
+            if len(answer_parts) > 1:
+                    generated_answer = '.'.join(answer_parts[:-1]).strip()'''
+            
             generated_answers.append(generated_answer)
 
             # Debugging information
@@ -248,7 +219,13 @@ def calculate_metrics(
 
         # 针对 edit-wise success rate 和 instance-wise accuracy
         if question not in questions:
-            target_new = [rw['target_new']['str'] for rw in requested_rewrite if rw['prompt'].format(rw['subject']) == question][0]
+            matching_rewrites = [rw for rw in requested_rewrite if rw['prompt'].format(rw['subject']) == question]
+            
+            if not matching_rewrites:
+                print(f"No matching rewrite found for question: {question}")
+                continue
+            
+            target_new = matching_rewrites[0]['target_new']['str']
 
             if target_new.lower() in generated_text.lower():
                 success_count += 1
@@ -261,6 +238,7 @@ def calculate_metrics(
     instance_accuracy = 1 if all_facts_recalled else 0
 
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
+
 
 
 

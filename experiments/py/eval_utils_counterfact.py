@@ -204,9 +204,6 @@ def calculate_metrics(
             answer_parts = generated_answer.split('?')
             if len(answer_parts) > 1:
                 generated_answer = answer_parts[1].strip()
-            answer_parts = generated_answer.split('.')
-            if len(answer_parts) > 1:
-                    generated_answer = '.'.join(answer_parts[:-1]).strip()
             
             generated_answers.append(generated_answer)
 

@@ -235,7 +235,16 @@ def main(
     
     if first_batch_model is not None and num_edits in [1, 100, 1000]:
         print("Evaluating all data with the first batch model...")
-        for record_chunks in chunks(ds, num_edits):
+        model_save_path = f"{ds_name}_model_{num_edits}_edits"
+        print(f"Saving first batch model to {model_save_path}...")
+        
+        # 创建目录以确保路径存在
+        os.makedirs(model_save_path, exist_ok=True)
+        
+        # 保存模型和tokenizer
+        first_batch_model.save_pretrained(model_save_path)
+        tok.save_pretrained(model_save_path)
+        '''for record_chunks in chunks(ds, num_edits):
             case_result_template = str(new_results_dir / "{}_edits-case_{}.json")
     
             start = time()
@@ -267,7 +276,8 @@ def main(
                 with open(out_file, "w") as f:
                     json.dump(metrics, f, indent=1)
     
-            print("Evaluation took", time() - start)
+            print("Evaluation took", time() - start)'''
+        
     
     if num_edits == 0:
         print("Evaluating all data with the original model...")

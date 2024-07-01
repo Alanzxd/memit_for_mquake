@@ -201,9 +201,9 @@ def calculate_metrics(
         # 获取生成文本的回答部分，针对 multi-hop accuracy
         if question in questions:
             # 以问号截断，取第一个问号后的部分
-            '''answer_parts = generated_answer.split('?')
+            answer_parts = generated_answer.split('?')
             if len(answer_parts) > 1:
-                generated_answer = answer_parts[1].strip()'''
+                generated_answer = answer_parts[1].strip()
             
             generated_answers.append(generated_answer)
 

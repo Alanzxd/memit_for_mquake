@@ -196,7 +196,7 @@ def calculate_metrics(
 
     for question in questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
         # 使用 generate_fast 函数生成答案
-        generated_text = generate_fast(model, tokenizer, [question], max_out_len=200, top_k=5)[0]
+        generated_text = generate_fast(model, tokenizer, [question],  n_gen_per_prompt=1, max_out_len=100)[0]
         generated_answer=generated_text
         # 获取生成文本的回答部分，针对 multi-hop accuracy
         if question in questions:

@@ -236,11 +236,6 @@ def compute_rewrite_quality_mquake(
 
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers'''
 
-import unicodedata
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from typing import List
-
 def generate_with_model_generate(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,

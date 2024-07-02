@@ -253,12 +253,13 @@ def generate_with_model_generate(
     Text generation using model.generate with top-k sampling.
     """
     eos_token = tok.eos_token  # 获取 eos_token
+    device = next(model.parameters()).device  # 获取模型所在的设备
 
     # Unroll prompts and tokenize
     inp = [prompt for prompt in prompts for _ in range(n_gen_per_prompt)]
-    inputs = tok(inp, padding=True, return_tensors="pt").to(model.device)
-    input_ids = inputs["input_ids"].to(model.device)
-    attention_mask = inputs["attention_mask"].to(model.device)
+    inputs = tok(inp, padding=True, return_tensors="pt").to(device)
+    input_ids = inputs["input_ids"]
+    attention_mask = inputs["attention_mask"]
 
     # Generate outputs using model.generate
     generated_outputs = model.generate(
@@ -308,8 +309,10 @@ def calculate_metrics(
     answer_aliases = record.get('new_answer_alias', [])
     requested_rewrite = record['requested_rewrite']
 
+    device = next(model.parameters()).device  # 获取模型所在的设备
+
     for question in questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
-        # 使用 generate_with_model_generate 函数生成答案
+        # 使用 generate_fast 函数生成答案
         generated_text = generate_with_model_generate(model, tokenizer, [question], n_gen_per_prompt=1, max_out_len=100)[0]
         generated_answer = generated_text
 
@@ -345,6 +348,7 @@ def calculate_metrics(
     instance_accuracy = 1 if all_facts_recalled else 0
 
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
+
 
 
 

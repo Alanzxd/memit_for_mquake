@@ -110,7 +110,6 @@ def generate_fast(
                 attention_mask=attention_mask[:, cur_context],
                 past_key_values=past_key_values,
                 use_cache=True,
-                eos_token_id=eos_token_id
             )
             logits, past_key_values = model_out.logits, model_out.past_key_values
             softmax_out = torch.nn.functional.softmax(logits[:, -1, :], dim=1)

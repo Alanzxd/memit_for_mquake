@@ -150,6 +150,7 @@ def generate_fast(
             cur_context = slice(cur_context.stop, cur_context.stop + 1)
             # Check if eos_token_id is generated
             if (new_toks == eos_token_id).any():
+                print(f"Generated tokens contain eos_token_id at step {cur_context.stop}")
                 break
     txt = [tok.decode(x) for x in input_ids.detach().cpu().numpy().tolist()]
     txt = [

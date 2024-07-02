@@ -78,13 +78,16 @@ python3 -m experiments.summarize --dir_name=MEMIT --runs=run_<run1>,run_<run2>
 
 Running `python3 -m experiments.evaluate -h` or `python3 -m experiments.summarize -h` provides details about command-line flags.
 
-## How to Cite
+## 需要注意（修改过的）文件
 
 ```bibtex
-@article{meng2022memit,
-  title={Mass Editing Memory in a Transformer},
-  author={Kevin Meng and Sen Sharma, Arnab and Alex Andonian and Yonatan Belinkov and David Bau},
-  journal={arXiv preprint arXiv:2210.07229},
-  year={2022}
-}
+experiments/evaluate.py -- 运行的主程序，加上了mquake-cf-3k，mquake-t，mquake-hard和mquake-2002，并且调用了experiments/py/eval_utils_counterfact.py
+
+experiments/py/eval_utils_counterfact.py 生成和评判答案（mutihop accuracy，instance-wise，edit-wise）调用了util/generate.py 中的genrate_fast函数
+
+util/generate.py generate_fast函数，加上了停止判段。
+
+
+
+
 ```

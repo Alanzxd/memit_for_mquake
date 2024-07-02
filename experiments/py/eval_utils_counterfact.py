@@ -278,7 +278,7 @@ def generate_with_model_generate(
 
     # Decode the generated outputs
     generated_texts = [
-        tok.decode(output, skip_special_tokens=True).split(eos_token)[0].strip()
+        tok.decode(output.cpu(), skip_special_tokens=True).split(eos_token)[0].strip()
         for output in generated_outputs
     ]
 

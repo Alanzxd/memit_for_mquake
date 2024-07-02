@@ -123,7 +123,7 @@ def generate_fast(
             new_toks = torch.gather(tk, 1, new_tok_indices)
             
             # Print new tokens and check if eos_token_id is among them
-            print(f"New tokens at step {cur_context.stop}: {new_toks.tolist()}"
+            print(f"New tokens at step {cur_context.stop}: {new_toks.tolist()}")
                   
             # If we're currently generating the continuation for the last token in `input_ids`,
             # create a new index so we can insert the new token

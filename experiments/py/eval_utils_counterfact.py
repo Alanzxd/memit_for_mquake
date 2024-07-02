@@ -310,7 +310,7 @@ def calculate_metrics(
 
     for question in questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
         # 使用 generate_with_model_generate 函数生成答案
-        generated_text = generate_with_model_generate(model, tokenizer, [question],  n_gen_per_prompt=1, max_out_len=100)[0]
+        generated_text = generate_with_model_generate(model, tokenizer, [question], n_gen_per_prompt=1, max_out_len=100)[0]
         generated_answer = generated_text
 
         # 获取生成文本的回答部分，针对 multi-hop accuracy
@@ -345,7 +345,6 @@ def calculate_metrics(
     instance_accuracy = 1 if all_facts_recalled else 0
 
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
-
 
 
 

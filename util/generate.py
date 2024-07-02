@@ -149,7 +149,7 @@ def generate_fast(
 
     txt = [tok.decode(x) for x in input_ids.detach().cpu().numpy().tolist()]
     txt = [
-        unicodedata.normalize("NFKD", x.split(eos_token)[0].split("</s>")[0]
+        unicodedata.normalize("NFKD", x.split(eos_token)[0].split("</s>")[0])
         .replace("\n\n", " ")
         .replace("<|endoftext|>", "")
         for x in txt

@@ -171,7 +171,7 @@ def compute_rewrite_quality_mquake(
         'generated_answers': generated_answers,
     }
 
-def calculate_metrics(
+'''def calculate_metrics(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     record: dict
@@ -234,7 +234,114 @@ def calculate_metrics(
     edit_success_rate = success_count / len(requested_rewrite)
     instance_accuracy = 1 if all_facts_recalled else 0
 
+    return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers'''
+
+import unicodedata
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from typing import List
+
+def generate_with_model_generate(
+    model: AutoModelForCausalLM,
+    tok: AutoTokenizer,
+    prompts: List[str],
+    n_gen_per_prompt: int = 1,
+    top_k: int = 5,
+    max_out_len: int = 200,
+):
+    """
+    Text generation using model.generate with top-k sampling.
+    """
+    eos_token_id = tok.eos_token_id
+    
+    # Unroll prompts and tokenize
+    inp = [prompt for prompt in prompts for _ in range(n_gen_per_prompt)]
+    input_ids = tok(inp, return_tensors="pt", padding=True).input_ids.to(model.device)
+
+    # Generate outputs using model.generate
+    generated_outputs = model.generate(
+        input_ids=input_ids,
+        max_length=max_out_len,
+        do_sample=True,
+        top_k=top_k,
+        eos_token_id=eos_token_id
+    )
+
+    # Decode the generated outputs
+    generated_texts = [
+        tok.decode(output, skip_special_tokens=True).split(eos_token_id)[0].strip()
+        for output in generated_outputs
+    ]
+
+    # Normalize the text
+    generated_texts = [
+        unicodedata.normalize("NFKD", text).replace("\n\n", " ").replace("\n", " ").replace("", "")
+        for text in generated_texts
+    ]
+
+    return generated_texts
+
+def calculate_metrics(
+    model: AutoModelForCausalLM,
+    tokenizer: AutoTokenizer,
+    record: dict
+):
+    """
+    Calculate multi-hop accuracy, edit-wise success rate, and instance-wise accuracy.
+
+    :param model: The language model.
+    :param tokenizer: The tokenizer.
+    :param record: A single record from the MQuAKE dataset.
+    :return: Multi-hop accuracy, edit-wise success rate, instance-wise accuracy, and generated answers.
+    """
+    correct_responses = 0
+    success_count = 0
+    all_facts_recalled = True
+    generated_answers = []
+
+    questions = record['questions']
+    correct_answer = record['new_answer']
+    answer_aliases = record.get('new_answer_alias', [])
+    requested_rewrite = record['requested_rewrite']
+
+    for question in questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
+        # 使用 generate_with_model_generate 函数生成答案
+        generated_text = generate_with_model_generate(model, tokenizer, [question],  n_gen_per_prompt=1, max_out_len=100)[0]
+        generated_answer = generated_text
+
+        # 获取生成文本的回答部分，针对 multi-hop accuracy
+        if question in questions:
+            generated_answers.append(generated_answer)
+
+            # Debugging information
+            print(f"Question: {question}")
+            print(f"Generated Answer: {generated_answer}")
+
+            if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
+                correct_responses += 1
+
+        # 针对 edit-wise success rate 和 instance-wise accuracy
+        if question not in questions:
+            matching_rewrites = [rw for rw in requested_rewrite if rw['prompt'].format(rw['subject']) == question]
+            
+            if not matching_rewrites:
+                print(f"No matching rewrite found for question: {question}")
+                continue
+            
+            target_new = matching_rewrites[0]['target_new']['str']
+
+            if target_new.lower() in generated_text.lower():
+                success_count += 1
+
+    # Check if all facts are recalled
+    all_facts_recalled = (success_count == len(requested_rewrite))
+
+    multi_hop_accuracy = correct_responses / len(questions)
+    edit_success_rate = success_count / len(requested_rewrite)
+    instance_accuracy = 1 if all_facts_recalled else 0
+
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
+
 
 
 

@@ -87,8 +87,7 @@ def generate_fast(
     Fast, parallelized auto-regressive text generation with top-k sampling.
     Our custom implementation.
     """
-    eos_token_id = tok.eos_token_id  # 获取 eos_token_id
-    print(f"eos_token_id: {eos_token_id}")
+    eos_token = "<|endoftext|>"
     # Unroll prompts and tokenize
     inp = [prompt for prompt in prompts for _ in range(n_gen_per_prompt)]
     inp_tok = tok(inp, padding=True, return_tensors="pt").to(
@@ -120,10 +119,7 @@ def generate_fast(
             softmax_out_top_k = softmax_out_top_k / softmax_out_top_k.sum(1)[:, None]
             new_tok_indices = torch.multinomial(softmax_out_top_k, 1)
             new_toks = torch.gather(tk, 1, new_tok_indices)
-            
-            # Print new tokens and check if eos_token_id is among them
-            print(f"New tokens at step {cur_context.stop}: {new_toks.tolist()}")
-                  
+
             # If we're currently generating the continuation for the last token in `input_ids`,
             # create a new index so we can insert the new token
             if cur_context.stop == input_ids.size(1):
@@ -148,17 +144,12 @@ def generate_fast(
                 if new_idx < max_out_len:
                     input_ids[i][new_idx] = new_toks[i]
                     attention_mask[i][new_idx] = 1
-                    if eos_token_id is not None and new_toks[i].item() == eos_token_id:
-                        stop_generating = True
 
             cur_context = slice(cur_context.stop, cur_context.stop + 1)
-            # Check if eos_token_id is generated
-            if (new_toks == eos_token_id).any():
-                print(f"Generated tokens contain eos_token_id at step {cur_context.stop}")
-                break
+
     txt = [tok.decode(x) for x in input_ids.detach().cpu().numpy().tolist()]
     txt = [
-        unicodedata.normalize("NFKD", x)
+        unicodedata.normalize("NFKD", x.split(eos_token)[0])
         .replace("\n\n", " ")
         .replace("<|endoftext|>", "")
         for x in txt

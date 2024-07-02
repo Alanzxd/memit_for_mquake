@@ -88,6 +88,7 @@ def generate_fast(
     Our custom implementation.
     """
     eos_token_id = tok.eos_token_id  # 获取 eos_token_id
+    print(f"eos_token_id: {eos_token_id}")
     # Unroll prompts and tokenize
     inp = [prompt for prompt in prompts for _ in range(n_gen_per_prompt)]
     inp_tok = tok(inp, padding=True, return_tensors="pt").to(
@@ -109,6 +110,7 @@ def generate_fast(
                 attention_mask=attention_mask[:, cur_context],
                 past_key_values=past_key_values,
                 use_cache=True,
+                eos_token_id=eos_token_id
             )
             logits, past_key_values = model_out.logits, model_out.past_key_values
             softmax_out = torch.nn.functional.softmax(logits[:, -1, :], dim=1)
@@ -119,7 +121,10 @@ def generate_fast(
             softmax_out_top_k = softmax_out_top_k / softmax_out_top_k.sum(1)[:, None]
             new_tok_indices = torch.multinomial(softmax_out_top_k, 1)
             new_toks = torch.gather(tk, 1, new_tok_indices)
-
+            
+            # Print new tokens and check if eos_token_id is among them
+            print(f"New tokens at step {cur_context.stop}: {new_toks.tolist()}"
+                  
             # If we're currently generating the continuation for the last token in `input_ids`,
             # create a new index so we can insert the new token
             if cur_context.stop == input_ids.size(1):

@@ -87,7 +87,7 @@ def generate_fast(
     Fast, parallelized auto-regressive text generation with top-k sampling.
     Our custom implementation.
     """
-    eos_token = "<|endoftext|>"
+    eos_token = tok.eos_token
     # Unroll prompts and tokenize
     inp = [prompt for prompt in prompts for _ in range(n_gen_per_prompt)]
     inp_tok = tok(inp, padding=True, return_tensors="pt").to(
@@ -148,8 +148,9 @@ def generate_fast(
             cur_context = slice(cur_context.stop, cur_context.stop + 1)
 
     txt = [tok.decode(x) for x in input_ids.detach().cpu().numpy().tolist()]
+    print(txt)
     txt = [
-        unicodedata.normalize("NFKD", x.split(eos_token)[0].split("</s>")[0])
+        unicodedata.normalize("NFKD", x.split(eos_token)[0].split("</s>")[0].split("<|endoftext|>")[0])
         .replace("\n\n", " ")
         .replace("<|endoftext|>", "")
         for x in txt

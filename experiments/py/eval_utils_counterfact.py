@@ -252,24 +252,28 @@ def generate_with_model_generate(
     """
     Text generation using model.generate with top-k sampling.
     """
-    eos_token_id = tok.eos_token_id
+    eos_token = tok.eos_token  # 获取 eos_token
     
     # Unroll prompts and tokenize
     inp = [prompt for prompt in prompts for _ in range(n_gen_per_prompt)]
-    input_ids = tok(inp, return_tensors="pt", padding=True).input_ids.to(model.device)
+    inputs = tok(inp, padding=True, return_tensors="pt").to(model.device)
+    input_ids = inputs["input_ids"]
+    attention_mask = inputs["attention_mask"]
 
     # Generate outputs using model.generate
     generated_outputs = model.generate(
         input_ids=input_ids,
+        attention_mask=attention_mask,
         max_length=max_out_len,
         do_sample=True,
         top_k=top_k,
-        eos_token_id=eos_token_id
+        eos_token_id=tok.eos_token_id,
+        pad_token_id=tok.eos_token_id
     )
 
     # Decode the generated outputs
     generated_texts = [
-        tok.decode(output, skip_special_tokens=True).split(eos_token_id)[0].strip()
+        tok.decode(output, skip_special_tokens=True).split(eos_token)[0].strip()
         for output in generated_outputs
     ]
 
@@ -341,6 +345,7 @@ def calculate_metrics(
     instance_accuracy = 1 if all_facts_recalled else 0
 
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
+
 
 
 

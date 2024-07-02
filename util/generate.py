@@ -17,6 +17,7 @@ def generate_interactive(
     layer_module_tmp: str = "transformer.h.{}",
     ln_f_module: str = "transformer.ln_f",
     lm_head_module: str = "lm_head",
+    eos_token_id: int = None,
 ):
     """
     Puts generation in a loop. Allows users to repeatedly provide inputs
@@ -143,6 +144,8 @@ def generate_fast(
                 if new_idx < max_out_len:
                     input_ids[i][new_idx] = new_toks[i]
                     attention_mask[i][new_idx] = 1
+                    if eos_token_id is not None and new_toks[i].item() == eos_token_id:
+                        stop_generating = True
 
             cur_context = slice(cur_context.stop, cur_context.stop + 1)
 

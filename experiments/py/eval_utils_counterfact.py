@@ -171,7 +171,7 @@ def compute_rewrite_quality_mquake(
         'generated_answers': generated_answers,
     }
 
-'''def calculate_metrics(
+def calculate_metrics(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     record: dict
@@ -201,9 +201,9 @@ def compute_rewrite_quality_mquake(
         # 获取生成文本的回答部分，针对 multi-hop accuracy
         if question in questions:
             # 以问号截断，取第一个问号后的部分
-            answer_parts = generated_answer.split('?')
+            '''answer_parts = generated_answer.split('?')
             if len(answer_parts) > 1:
-                 generated_answer = answer_parts[1].strip().split('\n')[0]
+                 generated_answer = answer_parts[1].strip().split('\n')[0]'''
             
             generated_answers.append(generated_answer)
 
@@ -234,8 +234,8 @@ def compute_rewrite_quality_mquake(
     edit_success_rate = success_count / len(requested_rewrite)
     instance_accuracy = 1 if all_facts_recalled else 0
 
-    return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers'''
-import unicodedata
+    return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
+'''import unicodedata
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import List
@@ -332,7 +332,7 @@ def calculate_metrics(
     edit_success_rate = success_count / len(requested_rewrite)
     instance_accuracy = 1 if all_facts_recalled else 0
 
-    return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
+    return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers'''
 
 
 

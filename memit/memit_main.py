@@ -20,17 +20,18 @@ from .memit_hparams import MEMITHyperParams
 CONTEXT_TEMPLATES_CACHE = None
 COV_CACHE = {}
 
-def preprocess_mquake_data(data):
+def preprocess_mquake_data(data, tokenizer):
     processed_requests = []
     for item in data:
         for edit in item["requested_rewrite"]:
             processed_request = {
                 "prompt": edit["prompt"].format(edit["subject"]),
-                "target_new": edit["target_new"]["str"],
+                "target_new": edit["target_new"]["str"] + " " + tokenizer.eos_token,  # 添加eos标志
                 "subject": edit["subject"],
             }
             processed_requests.append(processed_request)
     return processed_requests
+
 
 
 def apply_memit_to_model(
@@ -48,7 +49,7 @@ def apply_memit_to_model(
         Note that you are responsible for deallocating the new model's memory to avoid leaks.
     :return: (1) the updated model, (2) an original copy of the weights that changed
     """
-
+    requests = preprocess_mquake_data(requests, tok)  # 预处理请求，添加eos标志
     weights_copy = {}
     if copy:
         model = deepcopy(model)

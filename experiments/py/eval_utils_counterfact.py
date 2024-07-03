@@ -240,56 +240,6 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import List
 
-def generate_with_model_generate(
-    model: AutoModelForCausalLM,
-    tok: AutoTokenizer,
-    prompts: List[str],
-    n_gen_per_prompt: int = 1,
-    top_k: int = 5,
-    max_out_len: int = 200,
-):
-    """
-    Text generation using model.generate with top-k sampling.
-    """
-    eos_token = tok.eos_token  # 获取 eos_token
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 获取模型所在的设备
-    model.to(device)  # 确保模型在 GPU 上
-    tok.pad_token_id = tok.eos_token_id  # 设置 pad_token_id
-    
-    # Unroll prompts and tokenize
-    inp = [prompt for prompt in prompts for _ in range(n_gen_per_prompt)]
-    inputs = tok(inp, padding=True, return_tensors="pt").to(device)
-    input_ids = inputs["input_ids"]
-    attention_mask = inputs["attention_mask"]
-
-    # 生成时调试信息
-    print(f"input_ids device: {input_ids.device}, attention_mask device: {attention_mask.device}")
-
-    # Generate outputs using model.generate
-    generated_outputs = model.generate(
-        input_ids=input_ids,
-        attention_mask=attention_mask,
-        max_length=max_out_len,
-        do_sample=True,
-        top_k=top_k,
-        eos_token_id=tok.eos_token_id,
-        pad_token_id=tok.pad_token_id
-    )
-
-    # Decode the generated outputs
-    generated_texts = [
-        tok.decode(output.cpu(), skip_special_tokens=True).split(eos_token)[0].strip()
-        for output in generated_outputs
-    ]
-
-    # Normalize the text
-    generated_texts = [
-        unicodedata.normalize("NFKD", text).replace("\n\n", " ").replace("\n", " ").replace("", "")
-        for text in generated_texts
-    ]
-
-    return generated_texts
-
 def calculate_metrics(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
@@ -315,11 +265,41 @@ def calculate_metrics(
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 获取模型所在的设备
     model.to(device)  # 确保模型在 GPU 上
+    tokenizer.pad_token_id = tokenizer.eos_token_id  # 设置 pad_token_id
 
     for question in questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
-        # 使用 generate_with_model_generate 函数生成答案
-        generated_text = generate_with_model_generate(model, tokenizer, [question], n_gen_per_prompt=1, max_out_len=100)[0]
-        generated_answer = generated_text
+        # 使用 model.generate 函数生成答案
+        inputs = tokenizer([question], padding=True, return_tensors="pt").to(device)
+        input_ids = inputs["input_ids"]
+        attention_mask = inputs["attention_mask"]
+
+        # 生成时调试信息
+        print(f"input_ids device: {input_ids.device}, attention_mask device: {attention_mask.device}")
+        clear_torch_cache
+        # Generate outputs using model.generate
+        generated_outputs = model.generate(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            max_length=100,
+            do_sample=True,
+            top_k=5,
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.pad_token_id
+        )
+
+        # Decode the generated outputs
+        generated_texts = [
+            tokenizer.decode(output.cpu(), skip_special_tokens=True).split(tokenizer.eos_token)[0].strip()
+            for output in generated_outputs
+        ]
+
+        # Normalize the text
+        generated_texts = [
+            unicodedata.normalize("NFKD", text).replace("\n\n", " ").replace("\n", " ").replace("", "")
+            for text in generated_texts
+        ]
+
+        generated_answer = generated_texts[0]
 
         # 获取生成文本的回答部分，针对 multi-hop accuracy
         if question in questions:
@@ -342,7 +322,7 @@ def calculate_metrics(
             
             target_new = matching_rewrites[0]['target_new']['str']
 
-            if target_new.lower() in generated_text.lower():
+            if target_new.lower() in generated_answer.lower():
                 success_count += 1
 
     # Check if all facts are recalled
@@ -353,6 +333,7 @@ def calculate_metrics(
     instance_accuracy = 1 if all_facts_recalled else 0
 
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
+
 
 
 

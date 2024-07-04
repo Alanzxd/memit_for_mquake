@@ -49,7 +49,8 @@ def apply_memit_to_model(
         Note that you are responsible for deallocating the new model's memory to avoid leaks.
     :return: (1) the updated model, (2) an original copy of the weights that changed
     """
-    requests = preprocess_mquake_data(requests, tok)  # 预处理请求，添加eos标志
+    #requests = preprocess_mquake_data(requests, tok)  # 预处理请求，添加eos标志
+    print (requests)
     weights_copy = {}
     if copy:
         model = deepcopy(model)

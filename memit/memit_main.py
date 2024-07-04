@@ -20,19 +20,6 @@ from .memit_hparams import MEMITHyperParams
 CONTEXT_TEMPLATES_CACHE = None
 COV_CACHE = {}
 
-def preprocess_requests_for_training(requests: List[Dict], tok: AutoTokenizer) -> List[Dict]:
-    """
-    Preprocess the requests by adding the EOS token to the end of each target new string
-    and the input prompt for training.
-    """
-    for request in requests:
-        if request["target_new"]["str"][0] != " ":
-            request["target_new"]["str"] = " " + request["target_new"]["str"]
-        request["target_new"]["str"] += tok.eos_token
-        request["prompt"] += tok.eos_token
-    return requests
-
-
 
 def apply_memit_to_model(
     model: AutoModelForCausalLM,
@@ -49,7 +36,6 @@ def apply_memit_to_model(
         Note that you are responsible for deallocating the new model's memory to avoid leaks.
     :return: (1) the updated model, (2) an original copy of the weights that changed
     """
-    #requests = preprocess_requests_for_training(requests, tok)
     weights_copy = {}
     if copy:
         model = deepcopy(model)

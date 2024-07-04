@@ -148,11 +148,21 @@ def generate_fast(
             cur_context = slice(cur_context.stop, cur_context.stop + 1)
 
     txt = [tok.decode(x) for x in input_ids.detach().cpu().numpy().tolist()]
+
+    cleaned_txt = []
+    for original_prompt, generated_text in zip(prompts, txt):
+        prompt_with_eos = original_prompt + eos_token
+        if generated_text.startswith(prompt_with_eos):
+            # 删除第一个EOS token
+            generated_text = generated_text[len(prompt_with_eos):].strip()
+        cleaned_txt.append(generated_text)
+    
     txt = [
         unicodedata.normalize("NFKD", x)
+        .split(eos_token)[0]  # 这里使用EOS token分割
         .replace("\n\n", " ")
-        .replace("<|endoftext|>", "")
-        for x in txt
+        .replace("", "")
+        for x in cleaned_txt
     ]
-
+    
     return txt

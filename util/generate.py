@@ -147,8 +147,7 @@ def generate_fast(
 
             cur_context = slice(cur_context.stop, cur_context.stop + 1)
 
-    txt = [tok.decode(x, skip_special_tokens=True) for x in input_ids.detach().cpu().numpy().tolist()]
-    #print(txt)
+    txt = [tok.decode(x) for x in input_ids.detach().cpu().numpy().tolist()]
     txt = [
         unicodedata.normalize("NFKD", x)
         .replace("\n\n", " ")

@@ -50,6 +50,7 @@ def apply_memit_to_model(
     :return: (1) the updated model, (2) an original copy of the weights that changed
     """
     #requests = preprocess_mquake_data(requests, tok)  # 预处理请求，添加eos标志
+    print("这是request")
     print (requests)
     weights_copy = {}
     if copy:

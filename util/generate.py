@@ -156,3 +156,4 @@ def generate_fast(
         .replace("<|endoftext|>", "")
         for x in txt
     ]
+    return txt

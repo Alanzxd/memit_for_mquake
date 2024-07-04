@@ -149,19 +149,11 @@ def generate_fast(
 
     txt = [tok.decode(x) for x in input_ids.detach().cpu().numpy().tolist()]
     print(txt)
-    cleaned_txt = []
-    for original_prompt, generated_text in zip(prompts, txt):
-        prompt_with_eos = original_prompt + eos_token
-        if generated_text.startswith(prompt_with_eos):
-            cleaned_txt.append(generated_text[len(prompt_with_eos):].strip())
-        else:
-            cleaned_txt.append(generated_text.strip())
-
     txt = [
-        unicodedata.normalize("NFKD", x.split(eos_token)[0].split("</s>")[0].split("\n")[0])
+        unicodedata.normalize("NFKD", x)
         .replace("\n\n", " ")
-        .replace("", "")
-        for x in cleaned_txt
+        .replace("<|endoftext|>", "")
+        for x in txt
     ]
 
     return txt

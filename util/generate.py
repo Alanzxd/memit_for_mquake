@@ -80,7 +80,7 @@ def generate_fast(
     tok: AutoTokenizer,
     prompts: List[str],
     n_gen_per_prompt: int = 1,
-    top_k: int = 5,
+    top_k: int = 1,
     max_out_len: int = 200,
 ):
     """
@@ -147,7 +147,7 @@ def generate_fast(
 
             cur_context = slice(cur_context.stop, cur_context.stop + 1)
 
-    txt = [tok.decode(x) for x in input_ids.detach().cpu().numpy().tolist()]
+    txt = [tok.decode(x, skip_special_tokens=True) for x in input_ids.detach().cpu().numpy().tolist()]
     print(txt)
     txt = [
         unicodedata.normalize("NFKD", x)

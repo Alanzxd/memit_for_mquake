@@ -102,6 +102,7 @@ def execute_memit(
 
     for request in requests:
         # Retrieve k/v pair if already stored in cache
+        request['target_new']['str'] += tok.eos_token
         cache_fname = (
             Path(
                 str(cache_template).format(

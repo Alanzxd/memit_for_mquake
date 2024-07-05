@@ -151,7 +151,6 @@ def generate_fast(
     txt = [tok.decode(x) for x in input_ids.detach().cpu().numpy().tolist()]
     txt = [
         unicodedata.normalize("NFKD", x)
-        .split("<|endoftext|>")[0]
         .replace("\n\n", " ")
         .replace("<|endoftext|>", "")
         for x in txt

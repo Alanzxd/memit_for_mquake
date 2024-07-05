@@ -172,7 +172,7 @@ if __name__ == "__main__":
     main(
         model_name="EleutherAI/gpt-j-6B",
         ds_name="mquake",
-        dataset_size_limit=1000,
+        dataset_size_limit=3000,
         generation_test_interval=1,
         dir_name="your_results_dir"
     )

@@ -83,7 +83,7 @@ def calculate_metrics(
             max_length=100,
             eos_token_id=tokenizer.eos_token_id,
             pad_token_id=tokenizer.pad_token_id,
-            do_sample=True,  # Ensure sampling is used
+            do_sample=False,  # Ensure sampling is used
             top_k=5
         )
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)

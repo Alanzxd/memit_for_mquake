@@ -16,7 +16,7 @@ class MQuAKE_T(Dataset):
         data_dir = Path(data_dir)
         mquake_loc = data_dir / "MQuAKE-T.json"
         if not mquake_loc.exists():
-            remote_url = f"{REMOTE_ROOT}/MQuAKE-T.json"
+            remote_url = f"{REMOTE_ROOT}/MQuAKE-CF-3k.json"
             print(f"{mquake_loc} does not exist. Downloading from {remote_url}")
             data_dir.mkdir(exist_ok=True, parents=True)
             torch.hub.download_url_to_file(remote_url, mquake_loc)

@@ -139,7 +139,7 @@ def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     record: dict,
-    num_edits: int
+    num_edits: int,
     snips: typing.Optional[AttributeSnippets] = None,
     vec: typing.Optional[TfidfVectorizer] = None
 ) -> typing.Dict:

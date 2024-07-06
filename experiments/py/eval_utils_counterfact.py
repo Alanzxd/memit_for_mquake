@@ -223,7 +223,7 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
 
     for question in questions + [rw['question'] for rw in requested_rewrite]:
         # 使用 generate_fast 函数生成答案
-        full_prompt = multi_hop_prompt + "\n" + question
+        full_prompt = multi_hop_prompt + "\n" + "Q: "+ question + " A: "
         generated_text = generate_fast(model, tokenizer, [full_prompt], n_gen_per_prompt=1, max_out_len=100)[0]
         generated_answer = generated_text
 

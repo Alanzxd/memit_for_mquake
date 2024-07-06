@@ -78,29 +78,40 @@ def calculate_multi_hop_accuracy(
     extended_answers = record.get('answer_extended', [])
     requested_rewrite = record['requested_rewrite']
 
-    all_prompts = questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]
-    correct_answers = [correct_answer] * len(questions) + [rw['target_true']['str'] for rw in requested_rewrite]
-
-    for prompt, correct_answer in zip(all_prompts, correct_answers):
-        full_prompt = multi_hop_prompt + "\n" + prompt
-        inputs = tokenizer(full_prompt, return_tensors="pt").to(model.device)
-        outputs = generate_fast(
-            model, tokenizer, inputs["input_ids"], top_k=5, max_length=100
+    all_questions = questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]
+    
+    for question in all_questions:
+        full_prompt = multi_hop_prompt + "\n" + "Q: " + question + " A: "
+        
+        inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=100,
+            num_return_sequences=1,
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.pad_token_id,
+            top_k=5,
+            do_sample=True
         )
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-        generated_answers.append(generated_text)
-
-        print(f"Prompt: {prompt}")
-        print(f"Generated Answer: {generated_text}")
-
-        if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases) or any(answer.lower() in generated_text.lower() for answer in extended_answers):
-            correct_responses += 1
-
-        # Check if the prompt is from the requested rewrites
-        if prompt in [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
-            target_new = rewrite['target_true']['str']
-            if target_new.lower() in generated_text.lower():
+        generated_answer = generated_text.replace(full_prompt, "").strip()
+        
+        print("Question:", question)
+        print("Generated Answer:\n", generated_answer)
+        
+        if question in questions:
+            generated_answers.append(generated_answer)
+            if (correct_answer.lower() in generated_answer.lower() or
+                    any(alias.lower() in generated_answer.lower() for alias in answer_aliases) or
+                    any(ext_answer.lower() in generated_answer.lower() for ext_answer in extended_answers)):
+                correct_responses += 1
+        else:
+            matching_rewrites = [rw for rw in requested_rewrite if rw['prompt'].format(rw['subject']) == question]
+            if not matching_rewrites:
+                print(f"No matching rewrite found for question: {question}")
+                continue
+            target_new = matching_rewrites[0]['target_true']['str']
+            if target_new.lower() in generated_answer.lower():
                 success_count += 1
 
     multi_hop_accuracy = correct_responses / len(questions)
@@ -109,18 +120,42 @@ def calculate_multi_hop_accuracy(
 
     return multi_hop_accuracy, generated_answers, edit_success_rate, instance_accuracy
 
+
 def generate_fast(
-    model, tokenizer, input_ids, top_k=5, max_length=100
+    model: AutoModelForCausalLM,
+    tok: AutoTokenizer,
+    prompts: List[str],
+    n_gen_per_prompt: int = 1,
+    top_k: int = 5,
+    max_out_len: int = 200,
 ):
-    model.eval()
-    cur_context = slice(input_ids.size(1))
-    attention_mask = torch.ones(input_ids.shape, dtype=torch.long, device=input_ids.device)
+    """
+    Fast, parallelized auto-regressive text generation with top-k sampling.
+    Our custom implementation.
+    """
+
+    # Unroll prompts and tokenize
+    inp = [prompt for prompt in prompts for _ in range(n_gen_per_prompt)]
+    inp_tok = tok(inp, padding=True, return_tensors="pt").to(
+        next(model.parameters()).device
+    )
+    input_ids, attention_mask = inp_tok["input_ids"], inp_tok["attention_mask"]
     batch_size = input_ids.size(0)
-    max_out_len = input_ids.size(1) + max_length
+
+    # Setup storage of fast generation with attention caches.
+    # `cur_context` is used to define the range of inputs that are not yet
+    # stored in `past_key_values`. At each step, we are generating the
+    # next token for the index at `cur_context.stop + 1`.
+    past_key_values, cur_context = None, slice(0, attention_mask.sum(1).min().item())
 
     with torch.no_grad():
-        while input_ids.size(1) < max_out_len:
-            model_out = model(input_ids, attention_mask=attention_mask, use_cache=True)
+        while input_ids.size(1) < max_out_len:  # while not exceeding max output length
+            model_out = model(
+                input_ids=input_ids[:, cur_context],
+                attention_mask=attention_mask[:, cur_context],
+                past_key_values=past_key_values,
+                use_cache=True,
+            )
             logits, past_key_values = model_out.logits, model_out.past_key_values
             softmax_out = torch.nn.functional.softmax(logits[:, -1, :], dim=1)
 
@@ -140,7 +175,7 @@ def generate_fast(
                 input_ids = torch.cat(
                     [
                         input_ids,
-                        input_ids.new_ones(batch_size, 1) * tokenizer.pad_token_id,
+                        input_ids.new_ones(batch_size, 1) * tok.pad_token_id,
                     ],
                     dim=1,
                 )
@@ -158,11 +193,11 @@ def generate_fast(
 
             cur_context = slice(cur_context.stop, cur_context.stop + 1)
 
-    txt = [tokenizer.decode(x) for x in input_ids.detach().cpu().numpy().tolist()]
+    txt = [tok.decode(x) for x in input_ids.detach().cpu().numpy().tolist()]
     txt = [
         unicodedata.normalize("NFKD", x)
         .replace("\n\n", " ")
-        .replace("", "")
+        .replace("<|endoftext|>", "")
         for x in txt
     ]
 

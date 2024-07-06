@@ -225,7 +225,7 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
         # 使用 generate_fast 函数生成答案
         full_prompt = multi_hop_prompt + "\n" + "Q: "+ question + " A: "
         generated_text = generate_fast(model, tokenizer, [full_prompt], n_gen_per_prompt=1, max_out_len=100)[0]
-        generated_answer = generated_text
+        generated_answer = generated_text.replace(multi_hop_prompt, "").strip()
 
         # 获取生成文本的回答部分，针对 multi-hop accuracy
         if question in questions:
@@ -245,10 +245,13 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
             if not matching_rewrites:
                 print(f"No matching rewrite found for question: {question}")
                 continue
+            if num_edits == 0:
+                target_new = matching_rewrites[0]['target_true']['str']
+            else:
+                target_new = matching_rewrites[0]['target_new']['str']
             
-            target_new = matching_rewrites[0]['target_new']['str']
 
-            if target_new.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases):
+            if target_new.lower() in generated_text.lower():
                 success_count += 1
 
     # Check if all facts are recalled

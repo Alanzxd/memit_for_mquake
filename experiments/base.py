@@ -87,7 +87,7 @@ def calculate_multi_hop_accuracy(
         inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
         outputs = model.generate(
             **inputs,
-            max_new_tokens=200,
+            max_new_tokens=100,
             num_return_sequences=1,
             eos_token_id=tokenizer.eos_token_id,
             pad_token_id=tokenizer.pad_token_id,
@@ -258,8 +258,7 @@ def main(
             print(f"Evaluation took {time() - start} seconds")
 
 if __name__ == "__main__":
-    multi_hop_prompt = """
-Q: What is the country where The Rotunda is located? A: United States of America
+    multi_hop_prompt = """Q: What is the country where The Rotunda is located? A: United States of America
 Q: In which country was Tohar Butbul granted citizenship? A: Israel
 Q: Who was Nissan 200SX created by? A: Nissan
 Q: What continent is the country where Prickly Pear grows located in? A: Europe

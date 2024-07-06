@@ -176,7 +176,7 @@ def calculate_metrics(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     record: dict,
-    num_edits: int
+    num_edits: int,
 ):
     """
     Calculate multi-hop accuracy, edit-wise success rate, and instance-wise accuracy.

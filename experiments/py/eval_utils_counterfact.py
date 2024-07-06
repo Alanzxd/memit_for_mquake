@@ -134,14 +134,14 @@ def clear_torch_cache():
                     os.remove(item_path)
             except Exception as e:
                 print(f"Failed to remove {item_path}. Reason: {e}")
-        
+
 def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     record: dict,
     num_edits: int,
-    snips: typing.Optional[AttributeSnippets] = None,
-    vec: typing.Optional[TfidfVectorizer] = None
+    snips: typing.Optional[typing.Any] = None,  # AttributeSnippets replaced with Any for compatibility
+    vec: typing.Optional[typing.Any] = None     # TfidfVectorizer replaced with Any for compatibility
 ) -> typing.Dict:
     """
     Evaluates the rewritten model on a MQuAKE dataset record for multiple metrics including
@@ -222,26 +222,33 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
     requested_rewrite = record['requested_rewrite']
 
     for question in questions + [rw['question'] for rw in requested_rewrite]:
-        # 使用 generate_fast 函数生成答案
-        full_prompt = multi_hop_prompt + "\n" + "Q: "+ question + " A: "
-        generated_text = generate_fast(model, tokenizer, [full_prompt], n_gen_per_prompt=1, max_out_len=100)[0]
-        generated_answer = generated_text.replace(multi_hop_prompt, "").strip()
+        full_prompt = multi_hop_prompt + "\n" + "Q: " + question + " A: "
+        print("Full Prompt:\n", full_prompt)  # Debug print statement
 
-        # 获取生成文本的回答部分，针对 multi-hop accuracy
+        inputs = tokenizer(full_prompt, return_tensors='pt')
+        outputs = model.generate(
+            **inputs,
+            max_length=100,
+            num_return_sequences=1,
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.pad_token_id,
+            top_k=5
+        )
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        print("Generated Text:\n", generated_text)  # Debug print statement
+
+        generated_answer = generated_text.replace(multi_hop_prompt, "").strip()
+        print("Generated Answer:\n", generated_answer)  # Debug print statement
+
         if question in questions:
             generated_answers.append(generated_answer)
-
-            # Debugging information
-            print(f"Question: {question}")
-            print(f"Generated Answer: {generated_answer}")
-
-            if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases) or any(ext_answer.lower() in generated_answer.lower() for ext_answer in extended_answers):
+            if (correct_answer.lower() in generated_answer.lower() or
+                    any(alias.lower() in generated_answer.lower() for alias in answer_aliases) or
+                    any(ext_answer.lower() in generated_answer.lower() for ext_answer in extended_answers)):
                 correct_responses += 1
 
-        # 针对 edit-wise success rate 和 instance-wise accuracy
         if question not in questions:
             matching_rewrites = [rw for rw in requested_rewrite if rw['question'] == question]
-            
             if not matching_rewrites:
                 print(f"No matching rewrite found for question: {question}")
                 continue
@@ -249,12 +256,9 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
                 target_new = matching_rewrites[0]['target_true']['str']
             else:
                 target_new = matching_rewrites[0]['target_new']['str']
-            
-
             if target_new.lower() in generated_text.lower():
                 success_count += 1
 
-    # Check if all facts are recalled
     all_facts_recalled = (success_count == len(requested_rewrite))
 
     multi_hop_accuracy = correct_responses / len(questions)

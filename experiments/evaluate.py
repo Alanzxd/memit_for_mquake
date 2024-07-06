@@ -215,6 +215,7 @@ def main(
                     edited_model,
                     tok,
                     record,
+                    num_edits,
                     *(
                         gen_test_vars
                         if record["case_id"] % generation_test_interval == 0
@@ -265,6 +266,7 @@ def main(
                         first_batch_model,
                         tok,
                         record,
+                        num_edits,
                         *(
                             gen_test_vars
                             if record["case_id"] % generation_test_interval == 0
@@ -282,7 +284,7 @@ def main(
     if num_edits == 0:
         print("Evaluating all data with the original model...")
         for record_chunks in chunks(ds, 1):
-            case_result_template = str(new_results_dir / "original_model_case_{}.json")
+            case_result_template = str(run_dir / "{}_edits-case_{}.json")
     
             start = time()
             gen_test_vars = [snips, vec]
@@ -302,6 +304,7 @@ def main(
                         model,
                         tok,
                         record,
+                        num_edits,
                         *(
                             gen_test_vars
                             if record["case_id"] % generation_test_interval == 0

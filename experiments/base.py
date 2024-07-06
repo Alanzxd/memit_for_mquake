@@ -7,7 +7,23 @@ from torch.utils.data import Dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from time import time
 import unicodedata
+import os
+import shutil
 
+def clear_torch_cache():
+    cache_dir = os.path.expanduser('~/.cache/torch/kernels')
+    if os.path.exists(cache_dir):
+        for item in os.listdir(cache_dir):
+            item_path = os.path.join(cache_dir, item)
+            try:
+                if os.path.islink(item_path):
+                    os.unlink(item_path)
+                elif os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+                else:
+                    os.remove(item_path)
+            except Exception as e:
+                print(f"Failed to remove {item_path}. Reason: {e}")
 # 数据集类
 class MQuAKE_T(Dataset):
     """
@@ -83,7 +99,7 @@ def calculate_multi_hop_accuracy(
     
     for question in all_questions:
         full_prompt = multi_hop_prompt + "\n" + question 
-        
+        clear_torch_cache()
         inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
         outputs = model.generate(
             **inputs,

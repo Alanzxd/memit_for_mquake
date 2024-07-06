@@ -204,6 +204,9 @@ Q: What is the country of citizenship of Charles II of Spain? A: Spain
 Q: Who was Chevrolet Biscayne created by? A: Chevrolet
 Q: What is the name of the current head of state in United Kingdom? A: Elizabeth II"""
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+
     correct_responses = 0
     success_count = 0
     all_facts_recalled = True
@@ -225,7 +228,8 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
         full_prompt = multi_hop_prompt + "\n" + "Q: " + question + " A: "
         print("Full Prompt:\n", full_prompt)  # Debug print statement
 
-        inputs = tokenizer(full_prompt, return_tensors='pt')
+        clear_torch_cache()
+        inputs = tokenizer(full_prompt, return_tensors='pt').to(device)
         outputs = model.generate(
             **inputs,
             max_new_tokens=100,
@@ -237,7 +241,7 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         print("Generated Text:\n", generated_text)  # Debug print statement
 
-        generated_answer = generated_text.replace(multi_hop_prompt, "").strip()
+        generated_answer = generated_text.replace(full_prompt, "").strip()
         print("Generated Answer:\n", generated_answer)  # Debug print statement
 
         if question in questions:
@@ -266,6 +270,7 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
     instance_accuracy = 1 if all_facts_recalled else 0
 
     return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
+
 
 
 '''import unicodedata

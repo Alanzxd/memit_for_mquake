@@ -44,17 +44,11 @@ def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     record: dict,
-    multi_hop_prompt: str,
-    edit_prompts: dict
+    multi_hop_prompt: str
 ) -> typing.Dict:
-    multi_hop_accuracy, multi_hop_answers = calculate_multi_hop_accuracy(
+    multi_hop_accuracy, generated_answers, edit_success_rate, instance_accuracy = calculate_multi_hop_accuracy(
         model, tokenizer, record, multi_hop_prompt
     )
-    edit_success_rate, instance_accuracy, edit_answers = calculate_edit_accuracy(
-        model, tokenizer, record, edit_prompts
-    )
-
-    generated_answers = multi_hop_answers + edit_answers
 
     print(f"Multi-hop Accuracy: {multi_hop_accuracy}")
     print(f"Edit-wise Success Rate: {edit_success_rate}")
@@ -76,13 +70,18 @@ def calculate_multi_hop_accuracy(
     multi_hop_prompt: str
 ):
     correct_responses = 0
+    success_count = 0
     generated_answers = []
     questions = record['questions']
     correct_answer = record['answer']
     answer_aliases = record.get('answer_alias', [])
     extended_answers = record.get('answer_extended', [])
+    requested_rewrite = record['requested_rewrite']
 
-    for question in questions:
+    all_questions = questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]
+    correct_answers = [correct_answer] * len(questions) + [rw['target_true']['str'] for rw in requested_rewrite]
+
+    for question, correct_answer in zip(all_questions, correct_answers):
         full_prompt = multi_hop_prompt + "\n" + question
         inputs = tokenizer(full_prompt, return_tensors="pt").to(model.device)
         outputs = generate_fast(
@@ -97,43 +96,14 @@ def calculate_multi_hop_accuracy(
 
         if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases) or any(answer.lower() in generated_text.lower() for answer in extended_answers):
             correct_responses += 1
+            if question in questions:
+                success_count += 1
 
     multi_hop_accuracy = correct_responses / len(questions)
-    return multi_hop_accuracy, generated_answers
-
-def calculate_edit_accuracy(
-    model: AutoModelForCausalLM,
-    tokenizer: AutoTokenizer,
-    record: dict,
-    edit_prompts: dict
-):
-    success_count = 0
-    all_facts_recalled = True
-    generated_answers = []
-    requested_rewrite = record['requested_rewrite']
-
-    for rewrite in requested_rewrite:
-        question = rewrite['prompt'].format(rewrite['subject'])
-        prompt_key = rewrite['prompt_key']
-        full_prompt = question
-        inputs = tokenizer(full_prompt, return_tensors="pt").to(model.device)
-        outputs = generate_fast(
-            model, tokenizer, inputs["input_ids"], top_k=5, max_length=100
-        )
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-        generated_answers.append(generated_text)
-
-        target_new = rewrite['target_true']['str']
-
-        if target_new.lower() in generated_text.lower():
-            success_count += 1
-
-    all_facts_recalled = (success_count == len(requested_rewrite))
     edit_success_rate = success_count / len(requested_rewrite)
-    instance_accuracy = 1 if all_facts_recalled else 0
+    instance_accuracy = 1 if success_count == len(requested_rewrite) else 0
 
-    return edit_success_rate, instance_accuracy, generated_answers
+    return multi_hop_accuracy, generated_answers, edit_success_rate, instance_accuracy
 
 def generate_fast(
     model, tokenizer, input_ids, top_k=5, max_length=100
@@ -200,8 +170,7 @@ def main(
     dataset_size_limit: int,
     generation_test_interval: int,
     dir_name: str,
-    multi_hop_prompt: str,
-    edit_prompts: dict
+    multi_hop_prompt: str
 ):
     current_dir = Path.cwd()
     results_dir = current_dir / "results" / dir_name
@@ -240,8 +209,7 @@ def main(
                     model,
                     tok,
                     record,
-                    multi_hop_prompt,
-                    edit_prompts
+                    multi_hop_prompt
                 ),
             }
 
@@ -264,8 +232,7 @@ Q: Who is the spouse of the US president? A: Jill Biden
 Q: Who has ownership of the developer of the Chevrolet Corvette (C4)? A: General Motors
 Q: Who is Joe Biden married to? A: Jill Biden
 Q: What is the country of citizenship of Charles II of Spain? A: Spain
-Q: Who was Chevrolet Biscayne created by? A: Chevrolet
-Q: What is the name of the current head of state in United Kingdom? A: Elizabeth II"""
+Q: Who was Chevrolet Biscayne created by? A: Chevrolet"""
 
     main(
         model_name="EleutherAI/gpt-j-6B",
@@ -274,5 +241,5 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
         generation_test_interval=1,
         dir_name="your_results_dir",
         multi_hop_prompt=multi_hop_prompt,
-        edit_prompts=edit_prompts
     )
+

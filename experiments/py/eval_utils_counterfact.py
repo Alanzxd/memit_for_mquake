@@ -227,11 +227,9 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
             top_k=5,
             do_sample=True
         )
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-        # 提取生成文本的答案部分
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).replace(multi_hop_prompt, "").strip()
         if "A:" in generated_text:
-            generated_answer = generated_text.split("A:")[1].strip()
+            generated_answer = generated_text.split("A:")[1].strip().split("Q:")[0].strip()
         else:
             generated_answer = generated_text.strip()
 

@@ -201,7 +201,7 @@ Q: What is the country of citizenship of Charles II of Spain? A: Spain
 Q: Who was Chevrolet Biscayne created by? A: Chevrolet
 Q: What is the name of the current head of state in United Kingdom? A: Elizabeth II"""
 
-    edit_prompts = {
+    edit_prompts = """
         "P30": "Q: Which continent is India located in? A: Asia\nQ: Which continent is Canada located in? A: North America\nQ: Which continent is France located in? A: Europe\nQ: Which continent is Sultanate of Egypt located in? A: Africa\nQ: Which continent is Mysore district located in? A: Asia\nQ: Which continent is Germany located in? A: Europe\nQ: Which continent is Renaud Island located in? A: Antarctica\nQ: Which continent is Prince-Bishopric of Warmia located in? A: Europe",
         "P36": "Q: What is the capital of Germany? A: Berlin\nQ: What is the capital of United States of America? A: Washington, D.C.\nQ: What is the capital of Arsanjan County? A: Arsanjan\nQ: What is the capital of Formia? A: Formia\nQ: What is the capital of Grundy County? A: Altamont\nQ: What is the capital of Custer County? A: Arapaho\nQ: What is the capital of France? A: Paris\nQ: What is the capital of India? A: New Delhi",
         "P35": "Q: What is the name of the current head of state in Newfoundland and Labrador? A: Elizabeth II\nQ: What is the name of the current head of state in United States of America? A: Donald Trump\nQ: What is the name of the current head of state in Stoltenberg's Second Cabinet? A: Harald V of Norway\nQ: What is the name of the current head of state in Germany? A: Frank-Walter Steinmeier\nQ: What is the name of the current head of state in India? A: Ram Nath Kovind\nQ: What is the name of the current head of state in Manipur? A: Najma Heptulla\nQ: What is the name of the current head of state in France? A: Emmanuel Macron\nQ: What is the name of the current head of state in Uttarakhand? A: Krishan Kant Paul",
@@ -239,7 +239,7 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
         "P176": "Q: Which company is PlayStation 2 produced by? A: Sony Interactive Entertainment\nQ: Which company is Mercury-Redstone 3 produced by? A: McDonnell Aircraft\nQ: Which company is Altair 8800 produced by? A: Micro Instrumentation and Telemetry Systems\nQ: Which company is PlayStation 3 produced by? A: Sony Interactive Entertainment\nQ: Which company is Alcantara produced by? A: Alcantara\nQ: Which company is Dodge Dakota produced by? A: Dodge\nQ: Which company is carbon dioxide produced by? A: humanity\nQ: Which company is United States dollar produced by? A: Bureau of Engraving and Printing",
         "P1037": "Q: Who is the director of Athens Conservatoire? A: George Nazos\nQ: Who is the director of World Economic Forum? A: Klaus Schwab\nQ: Who is the director of National Hockey League? A: Gary Bettman\nQ: Who is the director of Opéra-Comique? A: Olivier Mantei\nQ: Who is the director of Fraunhofer Society? A: Reimund Neugebauer\nQ: Who is the director of American Broadcasting Company? A: Bob Iger\nQ: Who is the director of National Aeronautics and Space Administration? A: Jim Bridenstine\nQ: Who is the director of British Broadcasting Corporation? A: Tony Hall, Baron Hall of Birkenhead",
         "P1308": "Q: Who is the President of the United States? A: Donald Trump\nQ: Who is the monarch of Italy? A: Odoacer\nQ: Who is the President pro tempore of the United States Senate? A: Orrin Hatch\nQ: Who is the Prime Minister of the United Kingdom? A: Boris Johnson\nQ: Who is the Governor of Tennessee? A: Bill Haslam\nQ: Who is the Vice President of the United States? A: Mike Pence\nQ: Who is the Premier of North Korea? A: Kim Jae-ryong\nQ: Who is the pope? A: Francis"
-    }
+   """
 
     correct_responses = 0
     success_count = 0
@@ -271,8 +271,7 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
 
     for rewrite in requested_rewrite:
         question = rewrite['prompt'].format(rewrite['subject'])
-        prompt_key = rewrite['prompt_key']
-        full_prompt = edit_prompts[prompt_key] + "\n" + question
+        full_prompt = edit_prompts + "\n" + question
         generated_text = generate_fast(model, tokenizer, [full_prompt], n_gen_per_prompt=1, max_out_len=100)[0]
         generated_answer = generated_text
         

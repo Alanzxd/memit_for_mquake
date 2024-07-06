@@ -1,5 +1,6 @@
 import json
 import typing
+from typing import List
 from pathlib import Path
 import torch
 from torch.utils.data import Dataset

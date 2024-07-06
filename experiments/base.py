@@ -95,7 +95,6 @@ def calculate_multi_hop_accuracy(
             do_sample=True
         )
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        generated_text = outputs[0].strip()
         if "A:" in generated_text:
             generated_answer = generated_text.split("A:")[1].strip()
         else:

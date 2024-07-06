@@ -84,19 +84,31 @@ def calculate_multi_hop_accuracy(
     for question in all_questions:
         full_prompt = multi_hop_prompt + "\n" + question 
         
-        outputs = generate_fast(
-            model, tokenizer, [full_prompt], n_gen_per_prompt=1, top_k=5, max_out_len=100
+        inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=100,
+            num_return_sequences=1,
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.pad_token_id,
+            top_k=5,
+            do_sample=True
         )
-        generated_text = outputs[0].replace(multi_hop_prompt, "").strip()
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        generated_text = outputs[0].strip()
+        if "A:" in generated_text:
+            generated_answer = generated_text.split("A:")[1].strip()
+        else:
+            generated_answer = generated_text.strip()
         
         print("Question:", question)
-        print("Generated Answer:\n", generated_text)
+        print("Generated Answer:\n", generated_answer)
         
         if question in questions:
-            generated_answers.append(generated_text)
-            if (correct_answer.lower() in generated_text.lower() or
-                    any(alias.lower() in generated_text.lower() for alias in answer_aliases) or
-                    any(ext_answer.lower() in generated_text.lower() for ext_answer in extended_answers)):
+            generated_answers.append(generated_answer)
+            if (correct_answer.lower() in generated_answer.lower() or
+                    any(alias.lower() in generated_answer.lower() for alias in answer_aliases) or
+                    any(ext_answer.lower() in generated_answer.lower() for ext_answer in extended_answers)):
                 correct_responses += 1
         else:
             matching_rewrites = [rw for rw in requested_rewrite if rw['prompt'].format(rw['subject']) == question]

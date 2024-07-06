@@ -94,7 +94,7 @@ def calculate_multi_hop_accuracy(
             top_k=5,
             do_sample=True
         )
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).replace(multi_hop_prompt, "").strip()
         if "A:" in generated_text:
             generated_answer = generated_text.split("A:")[1].strip()
         else:
@@ -262,7 +262,8 @@ def main(
             print(f"Evaluation took {time() - start} seconds")
 
 if __name__ == "__main__":
-    multi_hop_prompt = """Q: What is the country where The Rotunda is located? A: United States of America
+    multi_hop_prompt = """
+Q: What is the country where The Rotunda is located? A: United States of America
 Q: In which country was Tohar Butbul granted citizenship? A: Israel
 Q: Who was Nissan 200SX created by? A: Nissan
 Q: What continent is the country where Prickly Pear grows located in? A: Europe

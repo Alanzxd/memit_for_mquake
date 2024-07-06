@@ -284,6 +284,6 @@ Q: Who was Chevrolet Biscayne created by? A: Chevrolet"""
         ds_name="mquake",
         dataset_size_limit=3000,
         generation_test_interval=1,
-        dir_name="your_results_dir",
+        dir_name="mquake_t",
         multi_hop_prompt=multi_hop_prompt,
     )

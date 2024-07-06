@@ -226,7 +226,7 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
 
     for question in questions + [rw['question'] for rw in requested_rewrite]:
         full_prompt = multi_hop_prompt + "\n" + "Q: " + question + " A: "
-        print("Full Prompt:\n", full_prompt)  # Debug print statement
+        #print("Full Prompt:\n", full_prompt)  # Debug print statement
 
         clear_torch_cache()
         inputs = tokenizer(full_prompt, return_tensors='pt').to(device)
@@ -236,12 +236,14 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
             num_return_sequences=1,
             eos_token_id=tokenizer.eos_token_id,
             pad_token_id=tokenizer.pad_token_id,
-            top_k=5
+            top_k=5,
+            do_sample=True
         )
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        print("Generated Text:\n", generated_text)  # Debug print statement
+        #print("Generated Text:\n", generated_text)  # Debug print statement
 
         generated_answer = generated_text.replace(full_prompt, "").strip()
+        print("Question:", question)
         print("Generated Answer:\n", generated_answer)  # Debug print statement
 
         if question in questions:

@@ -289,7 +289,7 @@ def main(
             start = time()
             gen_test_vars = [snips, vec]
             for record in record_chunks:
-                out_file = Path(case_result_template.format(record["case_id"]))
+                out_file = Path(case_result_template.format(num_edits, record["case_id"]))
                 if out_file.exists():
                     print(f"Skipping {out_file}; already exists")
                     continue
@@ -317,6 +317,7 @@ def main(
                     json.dump(metrics, f, indent=1)
     
             print("Evaluation took", time() - start)
+
 
 def window(seq, n=2):
     it = iter(seq)

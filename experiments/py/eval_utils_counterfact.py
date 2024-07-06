@@ -184,6 +184,23 @@ def calculate_metrics(
     :param record: A single record from the MQuAKE dataset.
     :return: Multi-hop accuracy, edit-wise success rate, instance-wise accuracy, and generated answers.
     """
+    multi_hop_prompt = """Q: What is the country where The Rotunda is located? A: United States of America
+Q: In which country was Tohar Butbul granted citizenship? A: Israel
+Q: Who was Nissan 200SX created by? A: Nissan
+Q: What continent is the country where Prickly Pear grows located in? A: Europe
+Q: What is the capital of the country where Plainfield Town Hall is located? A: Washington, D.C.
+Q: In which country is the company that created Nissan 200SX located? A: Japan
+Q: Who was Dodge Ram SRT-10 created by? Dodge
+Q: Who is the spouse of Joe Biden? A: Jill Biden
+Q: Which continent is the country where the director of "My House Husband: Ikaw Na!" was educated located in? A: Asia
+Q: What country was the location of the Battle of Pressburg? A: Hungary
+Q: Who is the spouse of the US president? A: Jill Biden
+Q: Who has ownership of the developer of the Chevrolet Corvette (C4)? A: General Motors
+Q: Who is Joe Biden married to? A: Jill Biden
+Q: What is the country of citizenship of Charles II of Spain? A: Spain
+Q: Who was Chevrolet Biscayne created by? A: Chevrolet
+Q: What is the name of the current head of state in United Kingdom? A: Elizabeth II"""
+
     correct_responses = 0
     success_count = 0
     all_facts_recalled = True
@@ -195,16 +212,31 @@ def calculate_metrics(
     requested_rewrite = record['requested_rewrite']
 
     for question in questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
-        # 使用 generate_fast 函数生成答案
-        generated_text = generate_fast(model, tokenizer, [question],  n_gen_per_prompt=1, max_out_len=100)[0]
-        generated_answer=generated_text
+        # 清除缓存
+        clear_torch_cache()
+
+        # 使用 model.generate() 函数生成答案
+        full_prompt = multi_hop_prompt + "\n" + question 
+        inputs = tokenizer(multi_hop_prompt, return_tensors='pt').to(model.device)
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=100,
+            num_return_sequences=1,
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.pad_token_id,
+            top_k=5,
+            do_sample=True
+        )
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+        # 提取生成文本的答案部分
+        if "A:" in generated_text:
+            generated_answer = generated_text.split("A:")[1].strip()
+        else:
+            generated_answer = generated_text.strip()
+
         # 获取生成文本的回答部分，针对 multi-hop accuracy
         if question in questions:
-            '''# 以问号截断，取第一个问号后的部分
-            answer_parts = generated_answer.split('?')
-            if len(answer_parts) > 1:
-                 generated_answer = answer_parts[1].strip().split('\n')[0]'''
-
             generated_answers.append(generated_answer)
 
             # Debugging information

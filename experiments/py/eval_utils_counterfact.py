@@ -228,7 +228,7 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
         inputs = tokenizer(full_prompt, return_tensors='pt')
         outputs = model.generate(
             **inputs,
-            max_length=100,
+            max_new_tokens=100,
             num_return_sequences=1,
             eos_token_id=tokenizer.eos_token_id,
             pad_token_id=tokenizer.pad_token_id,

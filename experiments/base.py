@@ -78,11 +78,11 @@ def calculate_multi_hop_accuracy(
     extended_answers = record.get('answer_extended', [])
     requested_rewrite = record['requested_rewrite']
 
-    all_questions = questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]
+    all_prompts = questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]
     correct_answers = [correct_answer] * len(questions) + [rw['target_true']['str'] for rw in requested_rewrite]
 
-    for question, correct_answer in zip(all_questions, correct_answers):
-        full_prompt = multi_hop_prompt + "\n" + question
+    for prompt, correct_answer in zip(all_prompts, correct_answers):
+        full_prompt = multi_hop_prompt + "\n" + prompt
         inputs = tokenizer(full_prompt, return_tensors="pt").to(model.device)
         outputs = generate_fast(
             model, tokenizer, inputs["input_ids"], top_k=5, max_length=100
@@ -91,12 +91,16 @@ def calculate_multi_hop_accuracy(
 
         generated_answers.append(generated_text)
 
-        print(f"Question: {question}")
+        print(f"Prompt: {prompt}")
         print(f"Generated Answer: {generated_text}")
 
         if correct_answer.lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in answer_aliases) or any(answer.lower() in generated_text.lower() for answer in extended_answers):
             correct_responses += 1
-            if question in questions:
+
+        # Check if the prompt is from the requested rewrites
+        if prompt in [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
+            target_new = rewrite['target_true']['str']
+            if target_new.lower() in generated_text.lower():
                 success_count += 1
 
     multi_hop_accuracy = correct_responses / len(questions)
@@ -242,4 +246,3 @@ Q: Who was Chevrolet Biscayne created by? A: Chevrolet"""
         dir_name="your_results_dir",
         multi_hop_prompt=multi_hop_prompt,
     )
-

@@ -82,29 +82,21 @@ def calculate_multi_hop_accuracy(
     all_questions = questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]
     
     for question in all_questions:
-        full_prompt = multi_hop_prompt + "\n" + question 
+        full_prompt = multi_hop_prompt + "\n" + "Q: " + question 
         
-        inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=100,
-            num_return_sequences=1,
-            eos_token_id=tokenizer.eos_token_id,
-            pad_token_id=tokenizer.pad_token_id,
-            top_k=5,
-            do_sample=True
+        outputs = generate_fast(
+            model, tokenizer, [full_prompt], n_gen_per_prompt=1, top_k=5, max_out_len=100
         )
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        generated_answer = generated_text.replace(full_prompt, "").strip()
+        generated_text = outputs[0].replace(full_prompt, "").strip()
         
         print("Question:", question)
-        print("Generated Answer:\n", generated_answer)
+        print("Generated Answer:\n", generated_text)
         
         if question in questions:
-            generated_answers.append(generated_answer)
-            if (correct_answer.lower() in generated_answer.lower() or
-                    any(alias.lower() in generated_answer.lower() for alias in answer_aliases) or
-                    any(ext_answer.lower() in generated_answer.lower() for ext_answer in extended_answers)):
+            generated_answers.append(generated_text)
+            if (correct_answer.lower() in generated_text.lower() or
+                    any(alias.lower() in generated_text.lower() for alias in answer_aliases) or
+                    any(ext_answer.lower() in generated_text.lower() for ext_answer in extended_answers)):
                 correct_responses += 1
         else:
             matching_rewrites = [rw for rw in requested_rewrite if rw['prompt'].format(rw['subject']) == question]
@@ -112,7 +104,7 @@ def calculate_multi_hop_accuracy(
                 print(f"No matching rewrite found for question: {question}")
                 continue
             target_new = matching_rewrites[0]['target_true']['str']
-            if target_new.lower() in generated_answer.lower():
+            if target_new.lower() in generated_text.lower():
                 success_count += 1
 
     multi_hop_accuracy = correct_responses / len(questions)
@@ -120,6 +112,7 @@ def calculate_multi_hop_accuracy(
     instance_accuracy = 1 if success_count == len(requested_rewrite) else 0
 
     return multi_hop_accuracy, generated_answers, edit_success_rate, instance_accuracy
+
 
 
 def generate_fast(
@@ -258,7 +251,8 @@ def main(
             print(f"Evaluation took {time() - start} seconds")
 
 if __name__ == "__main__":
-    multi_hop_prompt = """Q: What is the country where The Rotunda is located? A: United States of America
+    multi_hop_prompt = """
+Q: What is the country where The Rotunda is located? A: United States of America
 Q: In which country was Tohar Butbul granted citizenship? A: Israel
 Q: Who was Nissan 200SX created by? A: Nissan
 Q: What continent is the country where Prickly Pear grows located in? A: Europe
@@ -272,7 +266,8 @@ Q: Who is the spouse of the US president? A: Jill Biden
 Q: Who has ownership of the developer of the Chevrolet Corvette (C4)? A: General Motors
 Q: Who is Joe Biden married to? A: Jill Biden
 Q: What is the country of citizenship of Charles II of Spain? A: Spain
-Q: Who was Chevrolet Biscayne created by? A: Chevrolet"""
+Q: Who was Chevrolet Biscayne created by? A: Chevrolet
+"""
 
     main(
         model_name="EleutherAI/gpt-j-6B",

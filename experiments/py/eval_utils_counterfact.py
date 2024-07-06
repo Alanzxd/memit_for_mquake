@@ -29,7 +29,7 @@ def compute_rewrite_quality_counterfact(
     :paran snips: ???
     :param vec: ???
 
-    :return: Dictionary containing rewriting metrics
+    :return: Dictionary containing rewriting metric
     """
 
     # First, unpack rewrite evaluation record.

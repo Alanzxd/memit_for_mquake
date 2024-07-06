@@ -31,7 +31,7 @@ class MQuAKE_T(Dataset):
     """
     def __init__(self, data_dir: str, size: typing.Optional[int] = None, *args, **kwargs):
         data_dir = Path(data_dir)
-        mquake_loc = data_dir / "MQuAKE-CF-3k.json"
+        mquake_loc = data_dir / "MQuAKE-2002.json"
         if not mquake_loc.exists():
             remote_url = f"{REMOTE_ROOT}/MQuAKE-CF-3k.json"
             print(f"{mquake_loc} does not exist. Downloading from {remote_url}")
@@ -300,6 +300,6 @@ Q: Who was Chevrolet Biscayne created by? A: Chevrolet"""
         ds_name="mquake",
         dataset_size_limit=3000,
         generation_test_interval=1,
-        dir_name="mquake_cf_3k",
+        dir_name="mquake_2002",
         multi_hop_prompt=multi_hop_prompt,
     )

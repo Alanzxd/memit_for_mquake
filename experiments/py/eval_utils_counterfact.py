@@ -217,7 +217,7 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
 
         # 使用 model.generate() 函数生成答案
         full_prompt = multi_hop_prompt + "\n" + question 
-        inputs = tokenizer(multi_hop_prompt, return_tensors='pt').to(model.device)
+        inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
         outputs = model.generate(
             **inputs,
             max_new_tokens=100,

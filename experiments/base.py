@@ -96,7 +96,7 @@ def calculate_multi_hop_accuracy(
     requested_rewrite = record['requested_rewrite']
     single_hops = record['single_hops']
     
-    all_questions = questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]
+    all_questions = questions
 
     for question in all_questions:
         full_prompt = multi_hop_prompt + "\nQ: " + question 

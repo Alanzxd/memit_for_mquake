@@ -256,7 +256,8 @@ def main(
     dataset_size_limit: int,
     generation_test_interval: int,
     dir_name: str,
-    multi_hop_prompt: str
+    multi_hop_prompt: str,
+    rel_prompts: dict
 ):
     current_dir = Path.cwd()
     results_dir = current_dir / "results" / dir_name

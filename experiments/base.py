@@ -61,7 +61,7 @@ def compute_rewrite_quality_mquake(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     record: dict,
-    multi_hop_prompt: str
+    multi_hop_prompt: str,
     rel_prompts: dict
 ) -> typing.Dict:
     multi_hop_accuracy, generated_answers, edit_success_rate, instance_accuracy = calculate_multi_hop_accuracy(

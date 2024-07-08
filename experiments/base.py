@@ -303,7 +303,7 @@ def main(
             print(f"Evaluation took {time() - start} seconds")
 
 if __name__ == "__main__":
-    with open('multihop-prompts.json', 'r') as f:
+    with open('multihop-prompts.txt', 'r') as f:
         multi_hop_prompt = f.read()
     with open('rel-prompts.json', 'r') as f:
         rel_prompts = f.read()

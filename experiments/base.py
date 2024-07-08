@@ -62,9 +62,10 @@ def compute_rewrite_quality_mquake(
     tokenizer: AutoTokenizer,
     record: dict,
     multi_hop_prompt: str
+    rel_prompts: dict
 ) -> typing.Dict:
     multi_hop_accuracy, generated_answers, edit_success_rate, instance_accuracy = calculate_multi_hop_accuracy(
-        model, tokenizer, record, multi_hop_prompt
+        model, tokenizer, record, multi_hop_prompt, rel_prompts
     )
 
     print(f"Multi-hop Accuracy: {multi_hop_accuracy}")
@@ -314,4 +315,5 @@ if __name__ == "__main__":
         generation_test_interval=1,
         dir_name="mquake_hard",
         multi_hop_prompt=multi_hop_prompt,
+        rel_prompts=rel_prompts,
     )

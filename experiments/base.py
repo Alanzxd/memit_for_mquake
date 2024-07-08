@@ -84,21 +84,22 @@ def calculate_multi_hop_accuracy(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     record: dict,
-    multi_hop_prompt: str
+    multi_hop_prompt: str,
+    rel_prompts: dict
 ):
     correct_responses = 0
-    success_count = 0
     generated_answers = []
     questions = record['questions']
     correct_answer = record['answer']
     answer_aliases = record.get('answer_alias', [])
     extended_answers = record.get('answer_extended', [])
     requested_rewrite = record['requested_rewrite']
-
-    all_questions = questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]
+    single_hops = record['single_hops']
     
+    all_questions = questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]
+
     for question in all_questions:
-        full_prompt = multi_hop_prompt + "\n" + question 
+        full_prompt = multi_hop_prompt + "\nQ: " + question 
         clear_torch_cache()
         inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
         outputs = model.generate(
@@ -125,20 +126,44 @@ def calculate_multi_hop_accuracy(
                     any(alias.lower() in generated_answer.lower() for alias in answer_aliases) or
                     any(ext_answer.lower() in generated_answer.lower() for ext_answer in extended_answers)):
                 correct_responses += 1
-        else:
-            matching_rewrites = [rw for rw in requested_rewrite if rw['prompt'].format(rw['subject']) == question]
-            if not matching_rewrites:
-                print(f"No matching rewrite found for question: {question}")
-                continue
-            target_new = matching_rewrites[0]['target_true']['str']
-            if target_new.lower() in generated_text.lower():
-                success_count += 1
 
     multi_hop_accuracy = correct_responses / len(questions)
-    edit_success_rate = success_count / len(requested_rewrite)
-    instance_accuracy = 1 if success_count == len(requested_rewrite) else 0
 
-    return multi_hop_accuracy, generated_answers, edit_success_rate, instance_accuracy
+    # Editwise accuracy
+    edit_success_count = 0
+    for single_hop in single_hops:
+        rel_prompt = rel_prompts.get(single_hop['relation_id'], "")
+        question = single_hop['question']
+        full_prompt = rel_prompt + "\nQ: " + question
+        clear_torch_cache()
+        inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=100,
+            num_return_sequences=1,
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.pad_token_id,
+            top_k=5,
+            do_sample=True
+        )
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).replace(rel_prompt, "").strip()
+        if "A:" in generated_text:
+            generated_answer = generated_text.split("A:")[1].strip().split("Q:")[0].strip()
+        else:
+            generated_answer = generated_text.strip()
+        
+        print("Single Hop Question:", question)
+        print("Generated Answer:\n", generated_answer)
+        
+        if (single_hop['answer'].lower() in generated_answer.lower() or
+                any(alias.lower() in generated_answer.lower() for alias in single_hop['answer_alias'])):
+            edit_success_count += 1
+    
+    editwise_accuracy = edit_success_count / len(single_hops)
+    instance_accuracy = 1 if edit_success_count == len(single_hops) else 0
+
+    return multi_hop_accuracy, generated_answers, editwise_accuracy, instance_accuracy
+
 
 
 
@@ -278,23 +303,10 @@ def main(
             print(f"Evaluation took {time() - start} seconds")
 
 if __name__ == "__main__":
-    multi_hop_prompt = """
-Q: What is the country where The Rotunda is located? A: United States of America
-Q: In which country was Tohar Butbul granted citizenship? A: Israel
-Q: Who was Nissan 200SX created by? A: Nissan
-Q: What continent is the country where Prickly Pear grows located in? A: Europe
-Q: What is the capital of the country where Plainfield Town Hall is located? A: Washington, D.C.
-Q: In which country is the company that created Nissan 200SX located? A: Japan
-Q: Who was Dodge Ram SRT-10 created by? Dodge
-Q: Who is the spouse of Joe Biden? A: Jill Biden
-Q: Which continent is the country where the director of "My House Husband: Ikaw Na!" was educated located in? A: Asia
-Q: What country was the location of the Battle of Pressburg? A: Hungary
-Q: Who is the spouse of the US president? A: Jill Biden
-Q: Who has ownership of the developer of the Chevrolet Corvette (C4)? A: General Motors
-Q: Who is Joe Biden married to? A: Jill Biden
-Q: What is the country of citizenship of Charles II of Spain? A: Spain
-Q: Who was Chevrolet Biscayne created by? A: Chevrolet"""
-
+    with open('multihop-prompts.txt', 'r') as f:
+        multi_hop_prompt = f.read()
+    with open('rel-prompts.txt', 'r') as f:
+        rel_prompts = f.read()
     main(
         model_name="EleutherAI/gpt-j-6B",
         ds_name="mquake",

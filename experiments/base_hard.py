@@ -133,7 +133,17 @@ def calculate_multi_hop_accuracy(
     # Editwise accuracy
     edit_success_count = 0
     for single_hop in single_hops:
-        rel_prompt = rel_prompts.get(single_hop['relation_id'], "")
+        # Find corresponding relation_id from requested_rewrite
+        relation_id = None
+        for rw in requested_rewrite:
+            if rw['question'] == single_hop['question']:
+                relation_id = rw['relation_id']
+                break
+        if relation_id is None:
+            print(f"No matching relation_id found for single hop question: {single_hop['question']}")
+            continue
+        
+        rel_prompt = rel_prompts.get(relation_id, "")
         question = single_hop['question']
         full_prompt = rel_prompt + "\nQ: " + question
         clear_torch_cache()
@@ -164,7 +174,6 @@ def calculate_multi_hop_accuracy(
     instance_accuracy = 1 if edit_success_count == len(single_hops) else 0
 
     return multi_hop_accuracy, generated_answers, editwise_accuracy, instance_accuracy
-
 
 
 

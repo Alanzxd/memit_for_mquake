@@ -1,4 +1,4 @@
-import json
+  import json
 import typing
 from typing import List
 from pathlib import Path
@@ -296,7 +296,8 @@ def main(
                     model,
                     tok,
                     record,
-                    multi_hop_prompt
+                    multi_hop_prompt,
+                    rel_prompts
                 ),
             }
 

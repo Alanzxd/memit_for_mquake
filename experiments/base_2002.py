@@ -43,7 +43,7 @@ class MQuAKE_T(Dataset):
         if size is not None:
             self.data = self.data[:size]
         
-        print(f"Loaded MQuAKE-T dataset with {len(self)} elements")
+        print(f"Loaded MQuAKE-2002 dataset with {len(self)} elements")
 
     def __len__(self):
         return len(self.data)
@@ -296,7 +296,8 @@ def main(
                     model,
                     tok,
                     record,
-                    multi_hop_prompt
+                    multi_hop_prompt,
+                    rel-prompts
                 ),
             }
 
@@ -311,10 +312,10 @@ if __name__ == "__main__":
         rel_prompts = f.read()
     main(
         model_name="EleutherAI/gpt-j-6B",
-        ds_name="mquake",
+        ds_name="mquake_cf",
         dataset_size_limit=3000,
         generation_test_interval=1,
-        dir_name="mquake_hard",
+        dir_name="mquake_2002",
         multi_hop_prompt=multi_hop_prompt,
         rel_prompts=rel_prompts,
     )

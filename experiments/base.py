@@ -296,7 +296,8 @@ def main(
                     model,
                     tok,
                     record,
-                    multi_hop_prompt
+                    multi_hop_prompt,
+                    rel-prompts
                 ),
             }
 

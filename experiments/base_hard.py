@@ -1,4 +1,4 @@
-  import json
+import json
 import typing
 from typing import List
 from pathlib import Path

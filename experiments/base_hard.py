@@ -309,7 +309,7 @@ if __name__ == "__main__":
     with open('multihop-prompts.txt', 'r') as f:
         multi_hop_prompt = f.read()
     with open('rel-prompts.json', 'r') as f:
-        rel_prompts = f.read()
+        rel_prompts = json.load(f)  # Use json.load to parse the JSON file correctly
     main(
         model_name="EleutherAI/gpt-j-6B",
         ds_name="mquake",

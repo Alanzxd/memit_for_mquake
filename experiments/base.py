@@ -308,7 +308,7 @@ def main(
                     tok,
                     record,
                     multi_hop_prompt,
-                    rel-prompts
+                    rel_prompts
                 ),
             }
 

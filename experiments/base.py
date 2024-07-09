@@ -312,7 +312,7 @@ if __name__ == "__main__":
         rel_prompts = f.read()
     main(
         model_name="EleutherAI/gpt-j-6B",
-        ds_name="mquake",
+        ds_name="mquake_cf",
         dataset_size_limit=3000,
         generation_test_interval=1,
         dir_name="mquake_hard",

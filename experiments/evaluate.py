@@ -215,7 +215,6 @@ def main(
                     edited_model,
                     tok,
                     record,
-                    num_edits,
                     *(
                         gen_test_vars
                         if record["case_id"] % generation_test_interval == 0
@@ -304,7 +303,6 @@ def main(
                         model,
                         tok,
                         record,
-                        num_edits,
                         *(
                             gen_test_vars
                             if record["case_id"] % generation_test_interval == 0

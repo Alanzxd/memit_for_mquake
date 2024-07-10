@@ -10,7 +10,7 @@ from dsets import AttributeSnippets
 from util.generate import generate_fast
 from util.perplexity import perplexity
 import re
-
+import json
 def compute_rewrite_quality_counterfact(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,

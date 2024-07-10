@@ -31,7 +31,7 @@ class MQuAKE_T(Dataset):
     """
     def __init__(self, data_dir: str, size: typing.Optional[int] = None, *args, **kwargs):
         data_dir = Path(data_dir)
-        mquake_loc = data_dir / "MQuAKE-t.json"
+        mquake_loc = data_dir / "MQuAKE-T.json"
         if not mquake_loc.exists():
             remote_url = f"{REMOTE_ROOT}/MQuAKE-CF-3k.json"
             print(f"{mquake_loc} does not exist. Downloading from {remote_url}")
@@ -319,10 +319,10 @@ if __name__ == "__main__":
         rel_prompts = json.load(f) 
     main(
         model_name="EleutherAI/gpt-j-6B",
-        ds_name="mquake_cf",
+        ds_name="mquake_t",
         dataset_size_limit=3000,
         generation_test_interval=1,
-        dir_name="mquake_t",
+        dir_name="mquake_2002",
         multi_hop_prompt=multi_hop_prompt,
         rel_prompts=rel_prompts,
     )

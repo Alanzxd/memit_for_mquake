@@ -31,7 +31,7 @@ class MQuAKE_T(Dataset):
     """
     def __init__(self, data_dir: str, size: typing.Optional[int] = None, *args, **kwargs):
         data_dir = Path(data_dir)
-        mquake_loc = data_dir / "MQuAKE-T.json"
+        mquake_loc = data_dir / "MQuAKE-t.json"
         if not mquake_loc.exists():
             remote_url = f"{REMOTE_ROOT}/MQuAKE-CF-3k.json"
             print(f"{mquake_loc} does not exist. Downloading from {remote_url}")
@@ -43,7 +43,7 @@ class MQuAKE_T(Dataset):
         if size is not None:
             self.data = self.data[:size]
         
-        print(f"Loaded MQuAKE-T dataset with {len(self)} elements")
+        print(f"Loaded MQuAKE-CF-3k dataset with {len(self)} elements")
 
     def __len__(self):
         return len(self.data)
@@ -132,8 +132,16 @@ def calculate_multi_hop_accuracy(
 
     # Editwise accuracy
     edit_success_count = 0
+    
+    # We assume that all single_hops have the same relation_id in one case
+    if requested_rewrite:
+        relation_id = requested_rewrite[0]['relation_id']
+    else:
+        relation_id = ""
+
+    rel_prompt = rel_prompts.get(relation_id, "")
+    
     for single_hop in single_hops:
-        rel_prompt = rel_prompts.get(single_hop['relation_id'], "")
         question = single_hop['question']
         full_prompt = rel_prompt + "\nQ: " + question
         clear_torch_cache()
@@ -147,11 +155,8 @@ def calculate_multi_hop_accuracy(
             top_k=5,
             do_sample=True
         )
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).replace(rel_prompt, "").strip()
-        if "A:" in generated_text:
-            generated_answer = generated_text.split("A:")[1].strip().split("Q:")[0].strip()
-        else:
-            generated_answer = generated_text.strip()
+        generated_answer = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+        
         
         print("Single Hop Question:", question)
         print("Generated Answer:\n", generated_answer)
@@ -164,6 +169,8 @@ def calculate_multi_hop_accuracy(
     instance_accuracy = 1 if edit_success_count == len(single_hops) else 0
 
     return multi_hop_accuracy, generated_answers, editwise_accuracy, instance_accuracy
+
+
 
 
 
@@ -309,10 +316,10 @@ if __name__ == "__main__":
     with open('multihop-prompts.txt', 'r') as f:
         multi_hop_prompt = f.read()
     with open('rel-prompts.json', 'r') as f:
-        rel_prompts = f.read()
+        rel_prompts = json.load(f) 
     main(
         model_name="EleutherAI/gpt-j-6B",
-        ds_name="mquake",
+        ds_name="mquake_cf",
         dataset_size_limit=3000,
         generation_test_interval=1,
         dir_name="mquake_t",

@@ -6,7 +6,7 @@ from typing import Tuple, Union
 import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
+import json
 from baselines.ft import FTHyperParams, apply_ft_to_model
 from baselines.mend import MENDHyperParams, MendRewriteExecutor
 from dsets import (

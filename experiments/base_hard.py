@@ -132,18 +132,16 @@ def calculate_multi_hop_accuracy(
 
     # Editwise accuracy
     edit_success_count = 0
+    
+    # We assume that all single_hops have the same relation_id in one case
+    if requested_rewrite:
+        relation_id = requested_rewrite[0]['relation_id']
+    else:
+        relation_id = ""
+
+    rel_prompt = rel_prompts.get(relation_id, "")
+    
     for single_hop in single_hops:
-        # Find corresponding relation_id from requested_rewrite
-        relation_id = None
-        for rw in requested_rewrite:
-            if rw['question'] == single_hop['question']:
-                relation_id = rw['relation_id']
-                break
-        if relation_id is None:
-            print(f"No matching relation_id found for single hop question: {single_hop['question']}")
-            continue
-        
-        rel_prompt = rel_prompts.get(relation_id, "")
         question = single_hop['question']
         full_prompt = rel_prompt + "\nQ: " + question
         clear_torch_cache()
@@ -157,11 +155,8 @@ def calculate_multi_hop_accuracy(
             top_k=5,
             do_sample=True
         )
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).replace(rel_prompt, "").strip()
-        if "A:" in generated_text:
-            generated_answer = generated_text.split("A:")[1].strip().split("Q:")[0].strip()
-        else:
-            generated_answer = generated_text.strip()
+        generated_answer = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+        
         
         print("Single Hop Question:", question)
         print("Generated Answer:\n", generated_answer)
@@ -174,6 +169,9 @@ def calculate_multi_hop_accuracy(
     instance_accuracy = 1 if edit_success_count == len(single_hops) else 0
 
     return multi_hop_accuracy, generated_answers, editwise_accuracy, instance_accuracy
+
+
+
 
 
 
@@ -318,10 +316,10 @@ if __name__ == "__main__":
     with open('multihop-prompts.txt', 'r') as f:
         multi_hop_prompt = f.read()
     with open('rel-prompts.json', 'r') as f:
-        rel_prompts = json.load(f)  # Use json.load to parse the JSON file correctly
+        rel_prompts = json.load(f) 
     main(
         model_name="EleutherAI/gpt-j-6B",
-        ds_name="mquake",
+        ds_name="mquake_cf",
         dataset_size_limit=3000,
         generation_test_interval=1,
         dir_name="mquake_hard",

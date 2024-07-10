@@ -155,11 +155,8 @@ def calculate_multi_hop_accuracy(
             top_k=5,
             do_sample=True
         )
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).replace(rel_prompt, "").strip()
-        if "A:" in generated_text:
-            generated_answer = generated_text.split("A:")[1].strip().split("Q:")[0].strip()
-        else:
-            generated_answer = generated_text.strip()
+        generated_answer = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+        
         
         print("Single Hop Question:", question)
         print("Generated Answer:\n", generated_answer)

@@ -184,39 +184,33 @@ def calculate_metrics(
     :param record: A single record from the MQuAKE dataset.
     :return: Multi-hop accuracy, edit-wise success rate, instance-wise accuracy, and generated answers.
     """
-    multi_hop_prompt = """Q: What is the country where The Rotunda is located? A: United States of America
-Q: In which country was Tohar Butbul granted citizenship? A: Israel
-Q: Who was Nissan 200SX created by? A: Nissan
-Q: What continent is the country where Prickly Pear grows located in? A: Europe
-Q: What is the capital of the country where Plainfield Town Hall is located? A: Washington, D.C.
-Q: In which country is the company that created Nissan 200SX located? A: Japan
-Q: Who was Dodge Ram SRT-10 created by? Dodge
-Q: Who is the spouse of Joe Biden? A: Jill Biden
-Q: Which continent is the country where the director of "My House Husband: Ikaw Na!" was educated located in? A: Asia
-Q: What country was the location of the Battle of Pressburg? A: Hungary
-Q: Who is the spouse of the US president? A: Jill Biden
-Q: Who has ownership of the developer of the Chevrolet Corvette (C4)? A: General Motors
-Q: Who is Joe Biden married to? A: Jill Biden
-Q: What is the country of citizenship of Charles II of Spain? A: Spain
-Q: Who was Chevrolet Biscayne created by? A: Chevrolet
-Q: What is the name of the current head of state in United Kingdom? A: Elizabeth II"""
-
+    # Load multi-hop prompt
+    with open('multihop-prompts.txt', 'r') as f:
+        multi_hop_prompt = f.read()
+    
+    # Load relation prompts
+    with open('rel-prompts.json', 'r') as f:
+        rel_prompts = json.load(f)
+    
     correct_responses = 0
     success_count = 0
-    all_facts_recalled = True
     generated_answers = []
 
     questions = record['questions']
     correct_answer = record['new_answer']
     answer_aliases = record.get('new_answer_alias', [])
-    requested_rewrite = record['requested_rewrite']
+    new_single_hops = record['new_single_hops']
+    
+    # Get the relation_id from the requested_rewrite
+    relation_id = record['requested_rewrite'][0]['relation_id']
 
-    for question in questions + [rw['prompt'].format(rw['subject']) for rw in requested_rewrite]:
-        # 清除缓存
+    # Calculate multi-hop accuracy
+    for question in questions:
+        # Clear cache
         clear_torch_cache()
 
-        # 使用 model.generate() 函数生成答案
-        full_prompt = multi_hop_prompt + "\n" + question 
+        # Generate answer using model.generate()
+        full_prompt = multi_hop_prompt + "\nQ: " + question
         inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
         outputs = model.generate(
             **inputs,
@@ -228,44 +222,52 @@ Q: What is the name of the current head of state in United Kingdom? A: Elizabeth
             do_sample=True
         )
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        generate_answer= generated_text.replace(multi_hop_prompt, "").strip()
-        if "A:" in generate_answer:
-            generated_answer = generate_answer.split("A:")[1].strip().split("Q:")[0].strip()
+        generated_answer = generated_text.replace(multi_hop_prompt, "").strip()
+        if "A:" in generated_answer:
+            generated_answer = generated_answer.split("A:")[1].strip().split("Q:")[0].strip()
         else:
-            generated_answer = generate_answer.strip()
+            generated_answer = generated_answer.strip()
 
-        # 获取生成文本的回答部分，针对 multi-hop accuracy
-        if question in questions:
-            generated_answers.append(generated_answer)
+        # Append generated answer
+        generated_answers.append(generated_answer)
 
-            # Debugging information
-            print(f"Question: {question}")
-            print(f"Generated Answer: {generated_answer}")
+        # Debugging information
+        print(f"Question: {question}")
+        print(f"Generated Answer: {generated_answer}")
 
-            if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
-                correct_responses += 1
+        if correct_answer.lower() in generated_answer.lower() or any(alias.lower() in generated_answer.lower() for alias in answer_aliases):
+            correct_responses += 1
 
-        # 针对 edit-wise success rate 和 instance-wise accuracy
-        if question not in questions:
-            matching_rewrites = [rw for rw in requested_rewrite if rw['prompt'].format(rw['subject']) == question]
-
-            if not matching_rewrites:
-                print(f"No matching rewrite found for question: {question}")
-                continue
-
-            target_new = matching_rewrites[0]['target_new']['str']
-
-            if target_new.lower() in generated_text.lower():
-                success_count += 1
-
-    # Check if all facts are recalled
-    all_facts_recalled = (success_count == len(requested_rewrite))
+    # Calculate edit-wise success rate and instance-wise accuracy
+    rel_prompt = rel_prompts.get(relation_id, "")
+    
+    for single_hop in new_single_hops:
+        question = single_hop['question']
+        full_prompt = rel_prompt + "\nQ: " + question
+        clear_torch_cache()
+        inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=100,
+            num_return_sequences=1,
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.pad_token_id,
+            top_k=5,
+            do_sample=True
+        )
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).replace(rel_prompt, "").strip()
+        
+        print("Single Hop Question:", question)
+        print("Generated Answer:\n", generated_text)
+        
+        success_count += 1
 
     multi_hop_accuracy = correct_responses / len(questions)
-    edit_success_rate = success_count / len(requested_rewrite)
-    instance_accuracy = 1 if all_facts_recalled else 0
+    editwise_accuracy = success_count / len(new_single_hops)
+    instance_accuracy = 1 if success_count == len(new_single_hops) else 0
 
-    return multi_hop_accuracy, edit_success_rate, instance_accuracy, generated_answers
+    return multi_hop_accuracy, editwise_accuracy, instance_accuracy, generated_answers
+
 '''import unicodedata
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer

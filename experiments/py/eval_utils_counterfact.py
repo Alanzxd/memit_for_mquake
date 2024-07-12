@@ -239,11 +239,9 @@ def calculate_metrics(
             correct_responses += 1
 
     # Calculate edit-wise success rate and instance-wise accuracy
-    rel_prompt = rel_prompts.get(relation_id, "")
-    
     for single_hop in new_single_hops:
-        question = single_hop['question']
-        full_prompt = rel_prompt + "\nQ: " + question
+        cloze_question = single_hop['cloze']
+        full_prompt = cloze_question
         clear_torch_cache()
         inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
         outputs = model.generate(
@@ -255,12 +253,13 @@ def calculate_metrics(
             top_k=5,
             do_sample=True
         )
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).replace(rel_prompt, "").strip()
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         
-        print("Single Hop Question:", question)
+        print("Single Hop Question:", cloze_question)
         print("Generated Answer:\n", generated_text)
-        
-        success_count += 1
+
+        if single_hop['answer'].lower() in generated_text.lower() or any(alias.lower() in generated_text.lower() for alias in single_hop.get('answer_alias', [])):
+            success_count += 1
 
     multi_hop_accuracy = correct_responses / len(questions)
     editwise_accuracy = success_count / len(new_single_hops)

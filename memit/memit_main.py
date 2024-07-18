@@ -255,7 +255,8 @@ def visualize_k_v(z_list):
     z_tensors = np.array([z.detach().cpu().numpy() for z in z_list])
 
     # Perform t-SNE
-    tsne = TSNE(n_components=2, random_state=42)
+    perplexity = min(30, len(z_tensors) - 1)  # Ensure perplexity is less than the number of samples
+    tsne = TSNE(n_components=2, random_state=42, perplexity=perplexity)
     z_tsne = tsne.fit_transform(z_tensors)
 
     # Plotting the results

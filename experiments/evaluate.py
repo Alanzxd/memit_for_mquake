@@ -370,7 +370,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--ds_name",
-        choices=["mcf", "cf", "zsre", "mquake_cf_3k","mquake_t","mquake_2002","mquake_hard"],
+        choices=["mcf", "cf", "zsre", "mquake_cf_3k","mquake_t","mquake_2002","mquake_hard", "mquake_cf_3k_A","mquake_t_A","mquake_2002_A","mquake_hard_A"],
         default="mcf",
         help="Dataset to perform evaluations on. Either CounterFact (cf), MultiCounterFact (mcf), or zsRE (zsre).",
     )

@@ -157,7 +157,7 @@ def execute_memit(
                 )
                 print(f"Cached k/v pair at {cache_fname}")
     zs = torch.stack(z_list, dim=1)
-    
+
     # Insert
     for i, layer in enumerate(hparams.layers):
         print(f"\n\nLAYER {layer}\n")
@@ -239,49 +239,31 @@ def execute_memit(
 
     print(f"Deltas successfully computed for {list(weights.keys())}")
 
-    # 可视化 k 和 v 张量
-    #visualize_k_v(deltas)
+    # 可视化 z 张量
+    visualize_z(z_list)
 
     return deltas
 
-def visualize_k_v(deltas):
+def visualize_z(z_list):
     """
-    Visualize k and v tensors using t-SNE.
+    Visualize z tensors using t-SNE.
     
-    :param deltas: Dictionary containing delta updates with keys as weight names and values as tuples (adj_k, resid).
+    :param z_list: List containing the z vectors for each request.
     """
-    k_tensors = []
-    v_tensors = []
-
-    for weight_name, (adj_k, resid) in deltas.items():
-        k_tensors.append(adj_k.numpy())
-        v_tensors.append(resid.numpy())
-
-    k_tensors = np.concatenate(k_tensors, axis=0)
-    v_tensors = np.concatenate(v_tensors, axis=0)
+    z_tensors = [z.detach().cpu().numpy() for z in z_list]
+    z_tensors = np.concatenate(z_tensors, axis=0)
 
     # Flatten the tensors if needed
-    k_tensors_flat = k_tensors.reshape(k_tensors.shape[0], -1)
-    v_tensors_flat = v_tensors.reshape(v_tensors.shape[0], -1)
+    z_tensors_flat = z_tensors.reshape(z_tensors.shape[0], -1)
 
     # Perform t-SNE
     tsne = TSNE(n_components=2, random_state=42)
-    k_tsne = tsne.fit_transform(k_tensors_flat)
-    v_tsne = tsne.fit_transform(v_tensors_flat)
+    z_tsne = tsne.fit_transform(z_tensors_flat)
 
     # Plotting the results
     plt.figure(figsize=(12, 6))
-
-    plt.subplot(1, 2, 1)
-    plt.scatter(k_tsne[:, 0], k_tsne[:, 1], c='r', label='k')
-    plt.title('t-SNE of k tensors')
-    plt.xlabel('t-SNE component 1')
-    plt.ylabel('t-SNE component 2')
-    plt.legend()
-
-    plt.subplot(1, 2, 2)
-    plt.scatter(v_tsne[:, 0], v_tsne[:, 1], c='b', label='v')
-    plt.title('t-SNE of v tensors')
+    plt.scatter(z_tsne[:, 0], z_tsne[:, 1], c='g', label='z')
+    plt.title('t-SNE of z tensors')
     plt.xlabel('t-SNE component 1')
     plt.ylabel('t-SNE component 2')
     plt.legend()
@@ -290,9 +272,10 @@ def visualize_k_v(deltas):
 
     # Save the plot with a unique filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"tsne_k_v_{timestamp}.png"
+    filename = f"tsne_z_{timestamp}.png"
     plt.savefig(filename)
     print(f"Saved t-SNE plot to {filename}")
+
 
 
 def get_cov(

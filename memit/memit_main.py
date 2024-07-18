@@ -240,7 +240,7 @@ def execute_memit(
     print(f"Deltas successfully computed for {list(weights.keys())}")
 
     # 可视化 k 和 v 张量
-    visualize_k_v(deltas)
+    #visualize_k_v(deltas)
 
     return deltas
 

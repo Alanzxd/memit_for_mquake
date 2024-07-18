@@ -81,9 +81,7 @@ def analyze_errors(run_number):
 
     return categories
 
-def create_new_dataset(categories, run_number):
-    source_file = "/data/shared/Alan/LLM_Evaluation/memit_for_mquake/data/MQuAKE-CF-3k.json"
-    output_file = "/data/shared/Alan/LLM_Evaluation/memit_for_mquake/data/MQuAKE-CF-3k-A.json"
+def create_new_dataset(categories, run_number, source_file, output_file):
     output_answers_file = f"/data/shared/Alan/LLM_Evaluation/memit_for_mquake/results/MEMIT/run_{run_number:03d}_answers.json"
 
     # 读取原始数据集
@@ -108,7 +106,11 @@ def create_new_dataset(categories, run_number):
         for case in details["cases"][:20]:
             answers_dataset.append({
                 "case_id": case["case_id"],
-                "generated_answers": case["post"]["generated_answers"]
+                "grouped_case_ids": case.get("grouped_case_ids", []),
+                "num_edits": case.get("num_edits", 0),
+                "requested_rewrite": case.get("requested_rewrite", []),
+                "time": case.get("time", 0),
+                "post": case.get("post", {})
             })
 
     # 将新的数据集写入文件
@@ -123,9 +125,11 @@ def create_new_dataset(categories, run_number):
     print(f"Answers dataset created and saved to {output_answers_file}")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python error_analysis.py <run_number>")
+    if len(sys.argv) != 4:
+        print("Usage: python error_analysis.py <run_number> <source_file> <output_file>")
     else:
         run_number = int(sys.argv[1])
+        source_file = sys.argv[2]
+        output_file = sys.argv[3]
         categories = analyze_errors(run_number)
-        create_new_dataset(categories, run_number)
+        create_new_dataset(categories, run_number, source_file, output_file)

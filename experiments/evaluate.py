@@ -19,6 +19,10 @@ from dsets import (
     MQuAKE_T,
     MQuAKE_2002,
     MQuAKE_hard,
+    MQuAKEDataset_CF_3k_A,
+    MQuAKE_T_A,
+    MQuAKE_2002_A,
+    MQuAKE_hard_A,
 )
 from experiments.py.eval_utils_counterfact import compute_rewrite_quality_counterfact, compute_rewrite_quality_mquake
 from experiments.py.eval_utils_zsre import compute_rewrite_quality_zsre
@@ -42,6 +46,10 @@ DS_DICT = {
     "mquake_t": (MQuAKE_T, compute_rewrite_quality_mquake),
     "mquake_2002": (MQuAKE_2002, compute_rewrite_quality_mquake),
     "mquake_hard": (MQuAKE_hard, compute_rewrite_quality_mquake),
+    "mquake_cf_3k_A": (MQuAKEDataset_CF_3k_A, compute_rewrite_quality_mquake),
+    "mquake_t_A": (MQuAKE_T_A, compute_rewrite_quality_mquake),
+    "mquake_2002_A": (MQuAKE_2002_A, compute_rewrite_quality_mquake),
+    "mquake_hard_A": (MQuAKE_hard_A, compute_rewrite_quality_mquake),
 }
 
 def main(

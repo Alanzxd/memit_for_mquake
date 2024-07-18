@@ -42,29 +42,29 @@ def analyze_errors(run_number):
 
                     # 分类
                     if multi_hop_accuracy == 1 and edit_success_rate == 1 and instance_accuracy == 1:
-                        categories["category_1"].append(data["case_id"])
+                        categories["category_1"].append(data)
                     elif 0 < multi_hop_accuracy < 1 and edit_success_rate == 1 and instance_accuracy == 1:
-                        categories["category_2"].append(data["case_id"])
+                        categories["category_2"].append(data)
                     elif multi_hop_accuracy == 0 and edit_success_rate == 1 and instance_accuracy == 1:
-                        categories["category_3"].append(data["case_id"])
+                        categories["category_3"].append(data)
                     elif multi_hop_accuracy == 1 and 0 < edit_success_rate < 1 and instance_accuracy == 0:
-                        categories["category_4"].append(data["case_id"])
+                        categories["category_4"].append(data)
                     elif 0 < multi_hop_accuracy < 1 and 0 < edit_success_rate < 1 and instance_accuracy == 0:
-                        categories["category_5"].append(data["case_id"])
+                        categories["category_5"].append(data)
                     elif multi_hop_accuracy == 0 and 0 < edit_success_rate < 1 and instance_accuracy == 0:
-                        categories["category_6"].append(data["case_id"])
+                        categories["category_6"].append(data)
                     elif multi_hop_accuracy == 0 and edit_success_rate == 0 and instance_accuracy == 0:
-                        categories["category_7"].append(data["case_id"])
+                        categories["category_7"].append(data)
                     elif multi_hop_accuracy > 0 and edit_success_rate == 0 and instance_accuracy == 0:
-                        categories["category_8"].append(data["case_id"])
+                        categories["category_8"].append(data)
             except json.JSONDecodeError:
                 print(f"Error decoding JSON in file: {filename}")
 
     # 计算各类的比例
-    for category, case_ids in categories.items():
-        proportion = len(case_ids) / total_cases if total_cases > 0 else 0
+    for category, cases in categories.items():
+        proportion = len(cases) / total_cases if total_cases > 0 else 0
         categories[category] = {
-            "case_ids": case_ids,
+            "cases": cases,
             "proportion": proportion
         }
 
@@ -75,13 +75,57 @@ def analyze_errors(run_number):
 
     # 打印结果
     for category, details in categories.items():
-        print(f"{category} - {len(details['case_ids'])} cases, proportion: {details['proportion']:.2%}")
+        print(f"{category} - {len(details['cases'])} cases, proportion: {details['proportion']:.2%}")
 
     print(f"Total cases: {total_cases}")
+
+    return categories
+
+def create_new_dataset(categories, run_number):
+    source_file = "/data/shared/Alan/LLM_Evaluation/memit_for_mquake/data/MQuAKE-CF-3k.json"
+    output_file = "/data/shared/Alan/LLM_Evaluation/memit_for_mquake/data/MQuAKE-CF-3k-A.json"
+    output_answers_file = f"/data/shared/Alan/LLM_Evaluation/memit_for_mquake/results/MEMIT/run_{run_number:03d}_answers.json"
+
+    # 读取原始数据集
+    with open(source_file, "r") as file:
+        data = json.load(file)
+
+    # 初始化新的数据集和答案集
+    new_dataset = []
+    answers_dataset = []
+
+    # 从每个类别中各截取最多20个例子
+    for category, details in categories.items():
+        case_ids = [case["case_id"] for case in details["cases"]]
+        examples = [case for case in data if case["case_id"] in case_ids][:20]
+        
+        # 添加类型字段并扩展数据集
+        for example in examples:
+            example["type"] = category
+            new_dataset.append(example)
+
+        # 记录回答
+        for case in details["cases"][:20]:
+            answers_dataset.append({
+                "case_id": case["case_id"],
+                "generated_answers": case["post"]["generated_answers"]
+            })
+
+    # 将新的数据集写入文件
+    with open(output_file, "w") as file:
+        json.dump(new_dataset, file, indent=4)
+
+    # 将回答数据集写入文件
+    with open(output_answers_file, "w") as file:
+        json.dump(answers_dataset, file, indent=4)
+
+    print(f"New dataset created with {len(new_dataset)} examples and saved to {output_file}")
+    print(f"Answers dataset created and saved to {output_answers_file}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python error_analysis.py <run_number>")
     else:
         run_number = int(sys.argv[1])
-        analyze_errors(run_number)
+        categories = analyze_errors(run_number)
+        create_new_dataset(categories, run_number)

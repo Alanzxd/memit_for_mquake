@@ -24,31 +24,39 @@ for filename in os.listdir(directory):
     if filename.endswith(".json"):
         # 构造文件的完整路径
         filepath = os.path.join(directory, filename)
-        # 打开并读取json文件
-        with open(filepath, "r") as file:
-            data = json.load(file)
-            total_cases += 1
-            multi_hop_accuracy = data.get("post", {}).get("multi_hop_accuracy", -1)
-            edit_success_rate = data.get("post", {}).get("edit_success_rate", -1)
-            instance_accuracy = data.get("post", {}).get("instance_accuracy", -1)
+        try:
+            # 打开并读取json文件
+            with open(filepath, "r") as file:
+                content = file.read().strip()
+                if not content:
+                    print(f"Warning: {filename} is empty.")
+                    continue
+                
+                data = json.loads(content)
+                total_cases += 1
+                multi_hop_accuracy = data.get("post", {}).get("multi_hop_accuracy", -1)
+                edit_success_rate = data.get("post", {}).get("edit_success_rate", -1)
+                instance_accuracy = data.get("post", {}).get("instance_accuracy", -1)
 
-            # 分类
-            if multi_hop_accuracy == 1 and edit_success_rate == 1 and instance_accuracy == 1:
-                categories["category_1"].append(data["case_id"])
-            elif 0 < multi_hop_accuracy < 1 and edit_success_rate == 1 and instance_accuracy == 1:
-                categories["category_2"].append(data["case_id"])
-            elif multi_hop_accuracy == 0 and edit_success_rate == 1 and instance_accuracy == 1:
-                categories["category_3"].append(data["case_id"])
-            elif multi_hop_accuracy == 1 and 0 < edit_success_rate < 1 and instance_accuracy == 0:
-                categories["category_4"].append(data["case_id"])
-            elif 0 < multi_hop_accuracy < 1 and 0 < edit_success_rate < 1 and instance_accuracy == 0:
-                categories["category_5"].append(data["case_id"])
-            elif multi_hop_accuracy == 0 and 0 < edit_success_rate < 1 and instance_accuracy == 0:
-                categories["category_6"].append(data["case_id"])
-            elif multi_hop_accuracy == 0 and edit_success_rate == 0 and instance_accuracy == 0:
-                categories["category_7"].append(data["case_id"])
-            elif multi_hop_accuracy > 0 and edit_success_rate == 0 and instance_accuracy == 0:
-                categories["category_8"].append(data["case_id"])
+                # 分类
+                if multi_hop_accuracy == 1 and edit_success_rate == 1 and instance_accuracy == 1:
+                    categories["category_1"].append(data["case_id"])
+                elif 0 < multi_hop_accuracy < 1 and edit_success_rate == 1 and instance_accuracy == 1:
+                    categories["category_2"].append(data["case_id"])
+                elif multi_hop_accuracy == 0 and edit_success_rate == 1 and instance_accuracy == 1:
+                    categories["category_3"].append(data["case_id"])
+                elif multi_hop_accuracy == 1 and 0 < edit_success_rate < 1 and instance_accuracy == 0:
+                    categories["category_4"].append(data["case_id"])
+                elif 0 < multi_hop_accuracy < 1 and 0 < edit_success_rate < 1 and instance_accuracy == 0:
+                    categories["category_5"].append(data["case_id"])
+                elif multi_hop_accuracy == 0 and 0 < edit_success_rate < 1 and instance_accuracy == 0:
+                    categories["category_6"].append(data["case_id"])
+                elif multi_hop_accuracy == 0 and edit_success_rate == 0 and instance_accuracy == 0:
+                    categories["category_7"].append(data["case_id"])
+                elif multi_hop_accuracy > 0 and edit_success_rate == 0 and instance_accuracy == 0:
+                    categories["category_8"].append(data["case_id"])
+        except json.JSONDecodeError:
+            print(f"Error decoding JSON in file: {filename}")
 
 # 计算各类的比例
 for category, case_ids in categories.items():

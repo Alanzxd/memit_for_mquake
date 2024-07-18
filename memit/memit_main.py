@@ -157,8 +157,7 @@ def execute_memit(
                 )
                 print(f"Cached k/v pair at {cache_fname}")
     zs = torch.stack(z_list, dim=1)
-    print("K/V",cur_z)
-    visualize_cur_z(cur_z)
+    visualize_k_v(z_list)
     # Insert
     for i, layer in enumerate(hparams.layers):
         print(f"\n\nLAYER {layer}\n")
@@ -242,28 +241,33 @@ def execute_memit(
 
     return deltas
 
-def visualize_cur_z(cur_z):
+def visualize_k_v(z_list):
     """
-    Visualize cur_z tensor using t-SNE.
+    Visualize k and v tensors (cur_z) using t-SNE.
     
-    :param cur_z: The cur_z tensor for a request.
+    :param z_list: List containing the z vectors for each request.
     """
     from sklearn.manifold import TSNE
     import matplotlib.pyplot as plt
 
-    z_tensor = cur_z.detach().cpu().numpy()
+    z_tensors = []
 
-    # Flatten the tensor if needed
-    z_tensor_flat = z_tensor.reshape(z_tensor.shape[0], -1)
+    for z in z_list:
+        z_tensors.append(z.detach().cpu().numpy())
+
+    z_tensors = np.concatenate(z_tensors, axis=0)
+
+    # Flatten the tensors if needed
+    z_tensors_flat = z_tensors.reshape(z_tensors.shape[0], -1)
 
     # Perform t-SNE
     tsne = TSNE(n_components=2, random_state=42)
-    z_tsne = tsne.fit_transform(z_tensor_flat)
+    z_tsne = tsne.fit_transform(z_tensors_flat)
 
     # Plotting the results
     plt.figure(figsize=(8, 6))
-    plt.scatter(z_tsne[:, 0], z_tsne[:, 1], c='g', label='cur_z')
-    plt.title('t-SNE of cur_z tensor')
+    plt.scatter(z_tsne[:, 0], z_tsne[:, 1], c='g', label='z (cur_z)')
+    plt.title('t-SNE of z (cur_z) tensors')
     plt.xlabel('t-SNE component 1')
     plt.ylabel('t-SNE component 2')
     plt.legend()

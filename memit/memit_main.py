@@ -157,7 +157,7 @@ def execute_memit(
                 )
                 print(f"Cached k/v pair at {cache_fname}")
     zs = torch.stack(z_list, dim=1)
-    visualize_k_v(z_list)
+    visualize_zs(zs)
     # Insert
     for i, layer in enumerate(hparams.layers):
         print(f"\n\nLAYER {layer}\n")
@@ -241,21 +241,16 @@ def execute_memit(
 
     return deltas
 
-def visualize_k_v(z_list):
+def visualize_zs(zs):
     """
-    Visualize k and v tensors (cur_z) using t-SNE.
+    Visualize zs tensors using t-SNE.
     
-    :param z_list: List containing the z vectors for each request.
+    :param zs: Stacked z tensors for each request.
     """
     from sklearn.manifold import TSNE
     import matplotlib.pyplot as plt
 
-    z_tensors = []
-
-    for z in z_list:
-        z_tensors.append(z.detach().cpu().numpy())
-
-    z_tensors = np.concatenate(z_tensors, axis=0)
+    z_tensors = zs.detach().cpu().numpy()
 
     # Flatten the tensors if needed
     z_tensors_flat = z_tensors.reshape(z_tensors.shape[0], -1)
@@ -279,7 +274,6 @@ def visualize_k_v(z_list):
     filename = f"tsne_cur_z_{timestamp}.png"
     plt.savefig(filename)
     print(f"Saved t-SNE plot to {filename}")
-
 
 
 def get_cov(

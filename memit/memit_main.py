@@ -157,7 +157,7 @@ def execute_memit(
                 )
                 print(f"Cached k/v pair at {cache_fname}")
     zs = torch.stack(z_list, dim=1)
-    print(z_list)
+    #print(z_list)
     visualize_k_v(z_list)
     # Insert
     for i, layer in enumerate(hparams.layers):
@@ -251,19 +251,12 @@ def visualize_k_v(z_list):
     from sklearn.manifold import TSNE
     import matplotlib.pyplot as plt
 
-    z_tensors = []
+    # Convert z_list to numpy array
+    z_tensors = np.array([z.detach().cpu().numpy() for z in z_list])
 
-    for z in z_list:
-        z_tensors.append(z.detach().cpu().numpy())
-
-    z_tensors = np.concatenate(z_tensors, axis=0)
-    print("z_tensors",z_tensors)
-    # Flatten the tensors if needed
-    z_tensors_flat = z_tensors.reshape(z_tensors.shape[0], -1)
-    print("z_tensors_flat",z_tensors_flat)
     # Perform t-SNE
     tsne = TSNE(n_components=2, random_state=42)
-    z_tsne = tsne.fit_transform(z_tensors_flat)
+    z_tsne = tsne.fit_transform(z_tensors)
 
     # Plotting the results
     plt.figure(figsize=(8, 6))

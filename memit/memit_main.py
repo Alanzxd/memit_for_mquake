@@ -158,7 +158,7 @@ def execute_memit(
                 print(f"Cached k/v pair at {cache_fname}")
     zs = torch.stack(z_list, dim=1)
     #print(z_list)
-    visualize_k_v(z_list)
+    #visualize_k_v(z_list)
     # Insert
     for i, layer in enumerate(hparams.layers):
         print(f"\n\nLAYER {layer}\n")

@@ -36,6 +36,7 @@ def apply_memit_to_model(
         Note that you are responsible for deallocating the new model's memory to avoid leaks.
     :return: (1) the updated model, (2) an original copy of the weights that changed
     """
+
     weights_copy = {}
     if copy:
         model = deepcopy(model)
@@ -58,17 +59,6 @@ def apply_memit_to_model(
 
     return model, weights_copy
 
-
-import os
-import torch
-import numpy as np
-from sklearn.manifold import TSNE
-import matplotlib.pyplot as plt
-from datetime import datetime
-from pathlib import Path
-from copy import deepcopy
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from typing import List, Dict, Tuple, Optional
 
 def execute_memit(
     model: AutoModelForCausalLM,
@@ -128,9 +118,10 @@ def execute_memit(
             and cache_fname.exists()  # Cache file must exist
         ):
             try:
-                data = np.load(cache_fname)
+                '''data = np.load(cache_fname)
                 z_list.append(torch.from_numpy(data["v_star"]).to("cuda"))
-                data_loaded = True
+                data_loaded = True'''
+                print("skip")
             except Exception as e:
                 print(f"Error reading cache file due to {e}. Recomputing...")
 
@@ -157,8 +148,7 @@ def execute_memit(
                 )
                 print(f"Cached k/v pair at {cache_fname}")
     zs = torch.stack(z_list, dim=1)
-    #print(z_list)
-    #visualize_k_v(z_list)
+
     # Insert
     for i, layer in enumerate(hparams.layers):
         print(f"\n\nLAYER {layer}\n")
@@ -242,39 +232,6 @@ def execute_memit(
 
     return deltas
 
-def visualize_k_v(z_list):
-    """
-    Visualize k and v tensors (cur_z) using t-SNE.
-    
-    :param z_list: List containing the z vectors for each request.
-    """
-    from sklearn.manifold import TSNE
-    import matplotlib.pyplot as plt
-
-    # Convert z_list to numpy array
-    z_tensors = np.array([z.detach().cpu().numpy() for z in z_list])
-
-    # Perform t-SNE
-    perplexity = min(30, len(z_tensors) - 1)  # Ensure perplexity is less than the number of samples
-    tsne = TSNE(n_components=2, random_state=42, perplexity=perplexity)
-    z_tsne = tsne.fit_transform(z_tensors)
-
-    # Plotting the results
-    plt.figure(figsize=(8, 6))
-    plt.scatter(z_tsne[:, 0], z_tsne[:, 1], c='g', label='z (cur_z)')
-    plt.title('t-SNE of z (cur_z) tensors')
-    plt.xlabel('t-SNE component 1')
-    plt.ylabel('t-SNE component 2')
-    plt.legend()
-
-    plt.tight_layout()
-
-    # Save the plot with a unique filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"tsne_cur_z_{timestamp}.png"
-    plt.savefig(filename)
-    print(f"Saved t-SNE plot to {filename}")
-
 
 def get_cov(
     model: AutoModelForCausalLM,
@@ -351,17 +308,3 @@ def get_context_templates(model, tok):
         print(f"Cached context templates {CONTEXT_TEMPLATES_CACHE}")
 
     return CONTEXT_TEMPLATES_CACHE
-
-def get_context_templates_for_mquake():
-    # 手工编写的上下文模板，专为MQuAKE数据集设计
-    context_templates = [
-        "{}",  # 保留原有的通用模板
-        # 添加一些针对MQuAKE编辑请求和多跳问题设计的模板
-        "After recent updates, {}. Now, {}",
-        "It was once true that {}, but now it has changed. {}",
-        "Considering the latest changes, {}. Consequently, {}",
-        "Given the change in {}, now {}",
-        # 根据MQuAKE数据集的特定内容和结构，可以进一步添加更多模板
-    ]
-    return context_templates
-

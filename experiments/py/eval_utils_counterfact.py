@@ -207,7 +207,7 @@ def calculate_metrics(
     # Calculate multi-hop accuracy
     for question in questions:
         # Clear cache
-        clear_torch_cache()
+        #clear_torch_cache()
 
         # Generate answer using model.generate()
         full_prompt = multi_hop_prompt + "\nQ: " + question
@@ -242,7 +242,7 @@ def calculate_metrics(
     for single_hop in new_single_hops:
         cloze_question = single_hop['cloze']
         full_prompt = cloze_question
-        clear_torch_cache()
+        #clear_torch_cache()
         inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
         outputs = model.generate(
             **inputs,

@@ -101,7 +101,7 @@ def calculate_multi_hop_accuracy(
 
     for question in all_questions:
         full_prompt = multi_hop_prompt + "\nQ: " + question 
-        clear_torch_cache()
+        #clear_torch_cache()
         inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
         outputs = model.generate(
             **inputs,
@@ -144,7 +144,7 @@ def calculate_multi_hop_accuracy(
     for single_hop in single_hops:
         question = single_hop['question']
         full_prompt = rel_prompt + "\nQ: " + question
-        clear_torch_cache()
+        #clear_torch_cache()
         inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
         outputs = model.generate(
             **inputs,

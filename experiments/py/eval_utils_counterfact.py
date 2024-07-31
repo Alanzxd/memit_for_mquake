@@ -187,11 +187,11 @@ def calculate_metrics(
     # Load multi-hop prompt
     with open('multihop-prompts.txt', 'r') as f:
         multi_hop_prompt = f.read()
-    
+
     # Load relation prompts
     with open('rel-prompts.json', 'r') as f:
         rel_prompts = json.load(f)
-    
+
     correct_responses = 0
     success_count = 0
     generated_answers = []
@@ -200,7 +200,7 @@ def calculate_metrics(
     correct_answer = record['new_answer']
     answer_aliases = record.get('new_answer_alias', [])
     new_single_hops = record['new_single_hops']
-    
+
     # Get the relation_id from the requested_rewrite
     relation_id = record['requested_rewrite'][0]['relation_id']
 
@@ -254,7 +254,7 @@ def calculate_metrics(
             do_sample=True
         )
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        
+
         print("Single Hop Question:", cloze_question)
         print("Generated Answer:\n", generated_text)
 

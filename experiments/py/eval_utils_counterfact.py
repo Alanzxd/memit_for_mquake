@@ -240,7 +240,7 @@ def calculate_metrics(
 
     # Calculate edit-wise success rate and instance-wise accuracy
     for single_hop in new_single_hops:
-        cloze_question = single_hop['question']
+        cloze_question = single_hop['cloze']
         full_prompt = cloze_question
         #clear_torch_cache()
         inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)

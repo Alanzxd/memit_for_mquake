@@ -121,6 +121,9 @@ def compute_z(
     ex_len = val_input_tok["attention_mask"][0].sum()
     val_targets[0, ex_len - len(val_target_ids) : ex_len] = val_target_ids
 
+    print("Validation input tokens:", val_input_tok)
+    print("Validation targets:", val_targets)
+
     # Execute optimization
     for it in range(hparams.v_num_grad_steps):
         opt.zero_grad()
@@ -229,9 +232,7 @@ def compute_z(
 
     print(f"Saved training and validation loss curve as {plot_filename}")
 
-    print(val_losses)
-
-    return target
+    return target, train_losses, val_losses
 
 
 

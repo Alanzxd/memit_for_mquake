@@ -11,7 +11,6 @@ from .memit_hparams import MEMITHyperParams
 
 
 import matplotlib.pyplot as plt
-from datetime import datetime
 
 def compute_z(
     model: AutoModelForCausalLM,
@@ -20,15 +19,12 @@ def compute_z(
     hparams: MEMITHyperParams,
     layer: int,
     context_templates: List[str],
-) -> Tuple[torch.Tensor, List[float], List[float]]:
+    case_id: str,  # Add case_id as an argument
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Computes the value (right) vector for the rank-1 update.
     Runs a simple optimization procedure.
     """
-
-    # Initialize lists to store training and validation losses
-    train_losses = []
-    val_losses = []
 
     # Get model parameters
     lm_w, ln_f = (
@@ -43,7 +39,9 @@ def compute_z(
     print("Computing right vector (v)")
 
     # Tokenize target into list of int token IDs
-    target_ids = tok(request["target_new"]["str"], return_tensors="pt").to("cuda")["input_ids"][0]
+    target_ids = tok(request["target_new"]["str"], return_tensors="pt").to("cuda")[
+        "input_ids"
+    ][0]
 
     # Compile list of rewriting and KL x/y pairs
     rewriting_prompts, kl_prompts = [
@@ -107,22 +105,14 @@ def compute_z(
     opt = torch.optim.Adam([delta], lr=hparams.v_lr)
     nethook.set_requires_grad(False, model)
 
-    # Validation setup
-    val_prompt = request["question"]
-    val_input_tok = tok(
-        [val_prompt],
-        return_tensors="pt",
-        padding=True,
-    ).to("cuda")
-    val_target_ids = tok(request["target_new"]["str"], return_tensors="pt").to("cuda")["input_ids"][0]
-    val_targets = torch.tensor(-100, device="cuda").repeat(
-        len(val_input_tok["input_ids"]), *val_input_tok["input_ids"].shape[1:]
-    )
-    ex_len = val_input_tok["attention_mask"][0].sum()
-    val_targets[0, ex_len - len(val_target_ids) : ex_len] = val_target_ids
+    # Lists to store loss values
+    training_losses = []
+    validation_losses = []
 
-    print("Validation input tokens:", val_input_tok)
-    print("Validation targets:", val_targets)
+    # Validation setup
+    validation_question = request["question"]
+    validation_input_tok = tok(validation_question, return_tensors="pt").to("cuda")
+    validation_target_ids = tok(request["target_new"]["str"], return_tensors="pt").to("cuda")["input_ids"][0]
 
     # Execute optimization
     for it in range(hparams.v_num_grad_steps):
@@ -176,15 +166,31 @@ def compute_z(
         )
         loss = nll_loss + kl_loss + weight_decay
 
-        # Record training loss
-        train_losses.append(loss.item())
-        
+        # Store the training loss
+        training_losses.append(loss.item())
+
+        # Compute validation loss
+        with torch.no_grad():
+            validation_logits = model(**validation_input_tok).logits
+            validation_log_probs = torch.log_softmax(validation_logits, dim=2)
+            validation_loss = torch.nn.functional.nll_loss(
+                validation_log_probs.view(-1, validation_log_probs.size(-1)),
+                validation_target_ids.view(-1),
+                ignore_index=tok.pad_token_id,
+                reduction='mean'
+            )
+            validation_losses.append(validation_loss.item())
+
         print(
-            f"loss {np.round(loss.item(), 3)} = {np.round(nll_loss.item(), 3)} + {np.round(kl_loss.item(), 3)} + {np.round(weight_decay.item(), 3)} "
+            f"Training loss {np.round(loss.item(), 3)} = {np.round(nll_loss.item(), 3)} + {np.round(kl_loss.item(), 3)} + {np.round(weight_decay.item(), 3)} "
             f"avg prob of [{request['target_new']['str']}] "
             f"{torch.exp(-nll_loss_each).mean().item()}"
+            f" | Validation loss {validation_loss.item()}"
         )
         if loss < 5e-2:
+            break
+
+        if it == hparams.v_num_grad_steps - 1:
             break
 
         # Backpropagate
@@ -197,42 +203,24 @@ def compute_z(
             with torch.no_grad():
                 delta[...] = delta * max_norm / delta.norm()
 
-        # Compute validation loss
-        with torch.no_grad():
-            val_logits = model(**val_input_tok).logits
-            val_log_probs = torch.log_softmax(val_logits, dim=2)
-            val_loss = torch.gather(
-                val_log_probs,
-                2,
-                torch.where(val_targets != -100, val_targets, 0).unsqueeze(2),
-            ).squeeze(2)
-            val_mask = (val_targets != -100).float()
-            val_nll_loss = -(val_loss * val_mask).sum(1) / val_target_ids.size(0)
-            val_losses.append(val_nll_loss.mean().item())
-
     target = target_init + delta
     print(
         f"Init norm {target_init.norm()} | Delta norm {delta.norm()} | Target norm {target.norm()}"
     )
 
-    # Plot and save the training and validation loss curves
-    plt.figure()
-    plt.plot(train_losses, label='Training Loss')
-    plt.plot(val_losses, label='Validation Loss')
+    # Plot training and validation loss
+    plt.figure(figsize=(10, 5))
+    plt.plot(training_losses, label='Training Loss')
+    plt.plot(validation_losses, label='Validation Loss')
     plt.xlabel('Iteration')
     plt.ylabel('Loss')
-    plt.title(f'Training and Validation Loss Curves for Case {request["case_id"]}')
+    plt.title(f'Training and Validation Loss over Iterations (Case ID: {case_id})')
     plt.legend()
+    plt.savefig(f'training_validation_loss_{case_id}.png')  # Save the figure
+    plt.show()
 
-    # Save the plot with case_id and timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    plot_filename = f"loss_curve_case_{request['case_id']}_{timestamp}.png"
-    plt.savefig(plot_filename)
-    plt.close()
+    return target
 
-    print(f"Saved training and validation loss curve as {plot_filename}")
-
-    return target, train_losses, val_losses
 
 
 

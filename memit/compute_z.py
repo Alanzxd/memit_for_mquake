@@ -10,6 +10,9 @@ from util import nethook
 from .memit_hparams import MEMITHyperParams
 
 
+import matplotlib.pyplot as plt
+from datetime import datetime
+
 def compute_z(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
@@ -17,11 +20,15 @@ def compute_z(
     hparams: MEMITHyperParams,
     layer: int,
     context_templates: List[str],
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> Tuple[torch.Tensor, List[float], List[float]]:
     """
     Computes the value (right) vector for the rank-1 update.
     Runs a simple optimization procedure.
     """
+
+    # Initialize lists to store training and validation losses
+    train_losses = []
+    val_losses = []
 
     # Get model parameters
     lm_w, ln_f = (
@@ -36,9 +43,7 @@ def compute_z(
     print("Computing right vector (v)")
 
     # Tokenize target into list of int token IDs
-    target_ids = tok(request["target_new"]["str"], return_tensors="pt").to("cuda")[
-        "input_ids"
-    ][0]
+    target_ids = tok(request["target_new"]["str"], return_tensors="pt").to("cuda")["input_ids"][0]
 
     # Compile list of rewriting and KL x/y pairs
     rewriting_prompts, kl_prompts = [
@@ -102,6 +107,19 @@ def compute_z(
     opt = torch.optim.Adam([delta], lr=hparams.v_lr)
     nethook.set_requires_grad(False, model)
 
+    # Validation setup
+    val_input_tok = tok(
+        [request["question"].format(request["subject"])],
+        return_tensors="pt",
+        padding=True,
+    ).to("cuda")
+    val_target_ids = tok(request["target_new"]["str"], return_tensors="pt").to("cuda")["input_ids"][0]
+    val_target = torch.tensor(-100, device="cuda").repeat(
+        len(val_input_tok["input_ids"]), *val_input_tok["input_ids"].shape[1:]
+    )
+    ex_len = val_input_tok["attention_mask"][0].sum()
+    val_target[0, ex_len - len(val_target_ids) : ex_len] = val_target_ids
+
     # Execute optimization
     for it in range(hparams.v_num_grad_steps):
         opt.zero_grad()
@@ -152,8 +170,11 @@ def compute_z(
         weight_decay = hparams.v_weight_decay * (
             torch.norm(delta) / torch.norm(target_init) ** 2
         )
-        # weight_decay = hparams.v_weight_decay * torch.norm(delta) ** 2
         loss = nll_loss + kl_loss + weight_decay
+
+        # Record training loss
+        train_losses.append(loss.item())
+        
         print(
             f"loss {np.round(loss.item(), 3)} = {np.round(nll_loss.item(), 3)} + {np.round(kl_loss.item(), 3)} + {np.round(weight_decay.item(), 3)} "
             f"avg prob of [{request['target_new']['str']}] "
@@ -175,12 +196,43 @@ def compute_z(
             with torch.no_grad():
                 delta[...] = delta * max_norm / delta.norm()
 
+        # Compute validation loss
+        with torch.no_grad():
+            val_logits = model(**val_input_tok).logits
+            val_log_probs = torch.log_softmax(val_logits, dim=2)
+            val_loss = torch.gather(
+                val_log_probs,
+                2,
+                torch.where(val_target != -100, val_target, 0).unsqueeze(2),
+            ).squeeze(2)
+            val_mask = (val_target != -100).float()
+            val_nll_loss = -(val_loss * val_mask).sum(1) / val_target_ids.size(0)
+            val_losses.append(val_nll_loss.mean().item())
+
     target = target_init + delta
     print(
         f"Init norm {target_init.norm()} | Delta norm {delta.norm()} | Target norm {target.norm()}"
     )
 
-    return target
+    # Plot and save the training and validation loss curves
+    plt.figure()
+    plt.plot(train_losses, label='Training Loss')
+    plt.plot(val_losses, label='Validation Loss')
+    plt.xlabel('Iteration')
+    plt.ylabel('Loss')
+    plt.title(f'Training and Validation Loss Curves for Case {request["case_id"]}')
+    plt.legend()
+
+    # Save the plot with case_id and timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    plot_filename = f"loss_curve_case_{request['case_id']}_{timestamp}.png"
+    plt.savefig(plot_filename)
+    plt.close()
+
+    print(f"Saved training and validation loss curve as {plot_filename}")
+
+    return target, train_losses, val_losses
+
 
 
 def get_module_input_output_at_words(

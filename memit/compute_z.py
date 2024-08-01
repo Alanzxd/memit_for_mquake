@@ -12,7 +12,6 @@ from .memit_hparams import MEMITHyperParams
 
 import matplotlib.pyplot as plt
 from datetime import datetime
-from copy import deepcopy
 
 def compute_z(
     model: AutoModelForCausalLM,
@@ -109,19 +108,18 @@ def compute_z(
     nethook.set_requires_grad(False, model)
 
     # Validation setup
-    val_prompts = [request["question"]]
+    val_prompt = request["question"]
     val_input_tok = tok(
-        [prompt.format(request["subject"]) for prompt in val_prompts],
+        [val_prompt],
         return_tensors="pt",
         padding=True,
     ).to("cuda")
     val_target_ids = tok(request["target_new"]["str"], return_tensors="pt").to("cuda")["input_ids"][0]
     val_targets = torch.tensor(-100, device="cuda").repeat(
-        len(val_prompts), *val_input_tok["input_ids"].shape[1:]
+        len(val_input_tok["input_ids"]), *val_input_tok["input_ids"].shape[1:]
     )
-    for i in range(len(val_prompts)):
-        ex_len = val_input_tok["attention_mask"][i].sum()
-        val_targets[i, ex_len - len(val_target_ids) : ex_len] = val_target_ids
+    ex_len = val_input_tok["attention_mask"][0].sum()
+    val_targets[0, ex_len - len(val_target_ids) : ex_len] = val_target_ids
 
     # Execute optimization
     for it in range(hparams.v_num_grad_steps):
@@ -230,6 +228,8 @@ def compute_z(
     plt.close()
 
     print(f"Saved training and validation loss curve as {plot_filename}")
+
+    print(val_losses)
 
     return target
 

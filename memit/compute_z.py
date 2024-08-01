@@ -12,6 +12,7 @@ from .memit_hparams import MEMITHyperParams
 
 import matplotlib.pyplot as plt
 from datetime import datetime
+from copy import deepcopy
 
 def compute_z(
     model: AutoModelForCausalLM,
@@ -108,17 +109,19 @@ def compute_z(
     nethook.set_requires_grad(False, model)
 
     # Validation setup
+    val_prompts = [request["question"]]
     val_input_tok = tok(
-        [request["question"].format(request["subject"])],
+        [prompt.format(request["subject"]) for prompt in val_prompts],
         return_tensors="pt",
         padding=True,
     ).to("cuda")
     val_target_ids = tok(request["target_new"]["str"], return_tensors="pt").to("cuda")["input_ids"][0]
-    val_target = torch.tensor(-100, device="cuda").repeat(
-        len(val_input_tok["input_ids"]), *val_input_tok["input_ids"].shape[1:]
+    val_targets = torch.tensor(-100, device="cuda").repeat(
+        len(val_prompts), *val_input_tok["input_ids"].shape[1:]
     )
-    ex_len = val_input_tok["attention_mask"][0].sum()
-    val_target[0, ex_len - len(val_target_ids) : ex_len] = val_target_ids
+    for i in range(len(val_prompts)):
+        ex_len = val_input_tok["attention_mask"][i].sum()
+        val_targets[i, ex_len - len(val_target_ids) : ex_len] = val_target_ids
 
     # Execute optimization
     for it in range(hparams.v_num_grad_steps):
@@ -183,9 +186,6 @@ def compute_z(
         if loss < 5e-2:
             break
 
-        if it == hparams.v_num_grad_steps - 1:
-            break
-
         # Backpropagate
         loss.backward()
         opt.step()
@@ -203,9 +203,9 @@ def compute_z(
             val_loss = torch.gather(
                 val_log_probs,
                 2,
-                torch.where(val_target != -100, val_target, 0).unsqueeze(2),
+                torch.where(val_targets != -100, val_targets, 0).unsqueeze(2),
             ).squeeze(2)
-            val_mask = (val_target != -100).float()
+            val_mask = (val_targets != -100).float()
             val_nll_loss = -(val_loss * val_mask).sum(1) / val_target_ids.size(0)
             val_losses.append(val_nll_loss.mean().item())
 
@@ -231,7 +231,8 @@ def compute_z(
 
     print(f"Saved training and validation loss curve as {plot_filename}")
 
-    return target, train_losses, val_losses
+    return target
+
 
 
 

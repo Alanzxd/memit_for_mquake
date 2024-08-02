@@ -109,9 +109,9 @@ def compute_z(
     validation_losses = []
 
     # Validation setup
-    validation_question = request["requested_rewrite"][0]["question"]
+    validation_question = request["question"]
     validation_input_tok = tok(validation_question, return_tensors="pt").to("cuda")
-    validation_target_ids = tok(request["requested_rewrite"][0]["target_new"]["str"], return_tensors="pt").to("cuda")["input_ids"][0]
+    validation_target_ids = tok(request["target_new"]["str"], return_tensors="pt").to("cuda")["input_ids"][0]
 
     # Execute optimization
     for it in range(hparams.v_num_grad_steps):
@@ -186,7 +186,7 @@ def compute_z(
 
         print(
             f"Training loss {np.round(loss.item(), 3)} = {np.round(nll_loss.item(), 3)} + {np.round(kl_loss.item(), 3)} + {np.round(weight_decay.item(), 3)} "
-            f"avg prob of [{request['requested_rewrite'][0]['target_new']['str']}] "
+            f"avg prob of [{request['target_new']['str']}] "
             f"{torch.exp(-nll_loss_each).mean().item()}"
             f" | Validation loss {validation_loss.item()}"
         )

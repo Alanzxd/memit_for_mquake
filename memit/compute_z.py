@@ -187,6 +187,11 @@ def compute_z(
             validation_logits = model(**validation_input_tok).logits
             validation_log_probs = torch.log_softmax(validation_logits, dim=2)
 
+            # Debugging: Print validation logits and targets
+            print(f"Validation logits: {validation_logits}")
+            print(f"Validation log probs: {validation_log_probs}")
+            print(f"Validation targets expanded: {validation_target_ids_expanded}")
+
             validation_loss = torch.nn.functional.nll_loss(
                 validation_log_probs.view(-1, validation_log_probs.size(-1)),
                 validation_target_ids_expanded.view(-1),
@@ -237,8 +242,6 @@ def compute_z(
     plt.show()
 
     return target
-
-
 
 
 

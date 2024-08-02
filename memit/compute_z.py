@@ -109,9 +109,9 @@ def compute_z(
     validation_losses = []
 
     # Validation setup
-    validation_question = request["question"]
+    validation_question = request["requested_rewrite"][0]["question"]
     validation_input_tok = tok(validation_question, return_tensors="pt").to("cuda")
-    validation_target_ids = tok(request["target_new"]["str"], return_tensors="pt").to("cuda")["input_ids"][0]
+    validation_target_ids = tok(request["requested_rewrite"][0]["target_new"]["str"], return_tensors="pt").to("cuda")["input_ids"][0]
 
     # Execute optimization
     for it in range(hparams.v_num_grad_steps):
@@ -174,12 +174,11 @@ def compute_z(
             validation_log_probs = torch.log_softmax(validation_logits, dim=2)
 
             # Align the shape of validation_target_ids with validation_log_probs
-            validation_target_ids_expanded = validation_target_ids.unsqueeze(0).expand_as(validation_input_tok["input_ids"])
-            validation_target_ids_expanded = validation_target_ids_expanded[:, :validation_log_probs.shape[1]].reshape(-1)
+            validation_target_ids_expanded = validation_target_ids.unsqueeze(0).expand(validation_log_probs.size(0), -1)
 
             validation_loss = torch.nn.functional.nll_loss(
                 validation_log_probs.view(-1, validation_log_probs.size(-1)),
-                validation_target_ids_expanded,
+                validation_target_ids_expanded.view(-1),
                 ignore_index=tok.pad_token_id,
                 reduction='mean'
             )
@@ -187,7 +186,7 @@ def compute_z(
 
         print(
             f"Training loss {np.round(loss.item(), 3)} = {np.round(nll_loss.item(), 3)} + {np.round(kl_loss.item(), 3)} + {np.round(weight_decay.item(), 3)} "
-            f"avg prob of [{request['target_new']['str']}] "
+            f"avg prob of [{request['requested_rewrite'][0]['target_new']['str']}] "
             f"{torch.exp(-nll_loss_each).mean().item()}"
             f" | Validation loss {validation_loss.item()}"
         )

@@ -19,7 +19,6 @@ def compute_z(
     hparams: MEMITHyperParams,
     layer: int,
     context_templates: List[str],
-    case_id: str,  # Add case_id as an argument
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Computes the value (right) vector for the rank-1 update.
@@ -208,6 +207,9 @@ def compute_z(
         f"Init norm {target_init.norm()} | Delta norm {delta.norm()} | Target norm {target.norm()}"
     )
 
+    # Get case ID from request
+    case_id = request.get("case_id", "default_case")
+
     # Plot training and validation loss
     plt.figure(figsize=(10, 5))
     plt.plot(training_losses, label='Training Loss')
@@ -220,6 +222,7 @@ def compute_z(
     plt.show()
 
     return target
+
 
 
 

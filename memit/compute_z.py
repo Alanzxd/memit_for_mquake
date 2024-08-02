@@ -182,7 +182,17 @@ def compute_z(
         # Store the training loss
         training_losses.append(loss.item())
 
-        # Compute validation loss
+        # Update parameters
+        loss.backward()
+        opt.step()
+
+        # Project within L2 ball
+        max_norm = hparams.clamp_norm_factor * target_init.norm()
+        if delta.norm() > max_norm:
+            with torch.no_grad():
+                delta[...] = delta * max_norm / delta.norm()
+
+        # Compute validation loss after parameter update
         with torch.no_grad():
             validation_logits = model(**validation_input_tok).logits
             validation_log_probs = torch.log_softmax(validation_logits, dim=2)
@@ -209,19 +219,6 @@ def compute_z(
         if loss < 5e-2:
             break
 
-        if it == hparams.v_num_grad_steps - 1:
-            break
-
-        # Backpropagate
-        loss.backward()
-        opt.step()
-
-        # Project within L2 ball
-        max_norm = hparams.clamp_norm_factor * target_init.norm()
-        if delta.norm() > max_norm:
-            with torch.no_grad():
-                delta[...] = delta * max_norm / delta.norm()
-
     target = target_init + delta
     print(
         f"Init norm {target_init.norm()} | Delta norm {delta.norm()} | Target norm {target.norm()}"
@@ -242,6 +239,7 @@ def compute_z(
     plt.show()
 
     return target
+
 
 
 

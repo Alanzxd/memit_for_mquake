@@ -110,8 +110,22 @@ def compute_z(
 
     # Validation setup
     validation_question = request["question"]
-    validation_input_tok = tok(validation_question, return_tensors="pt").to("cuda")
-    validation_target_ids = tok(request["target_new"]["str"], return_tensors="pt").to("cuda")["input_ids"][0]
+    validation_input_tok = tok(validation_question, return_tensors="pt", padding=True).to("cuda")
+    validation_target_ids = tok(request["target_new"]["str"], return_tensors="pt", padding=True).to("cuda")["input_ids"][0]
+
+    # Expand the validation_target_ids to match the length of the validation input
+    validation_target_ids_expanded = validation_target_ids.unsqueeze(0).expand(validation_input_tok["input_ids"].size(0), -1)
+
+    # Ensure lengths match by trimming or padding validation_target_ids_expanded
+    max_len = validation_input_tok["input_ids"].shape[1]
+    validation_target_ids_expanded = validation_target_ids_expanded[:, :max_len]
+    if validation_target_ids_expanded.shape[1] < max_len:
+        padding = torch.full((validation_target_ids_expanded.shape[0], max_len - validation_target_ids_expanded.shape[1]), tok.pad_token_id, device="cuda")
+        validation_target_ids_expanded = torch.cat((validation_target_ids_expanded, padding), dim=1)
+
+    # Debug print shapes
+    print(f"Validation input shape: {validation_input_tok['input_ids'].shape}")
+    print(f"Validation target shape: {validation_target_ids_expanded.shape}")
 
     # Execute optimization
     for it in range(hparams.v_num_grad_steps):
@@ -173,16 +187,12 @@ def compute_z(
             validation_logits = model(**validation_input_tok).logits
             validation_log_probs = torch.log_softmax(validation_logits, dim=2)
 
-            # Align the shape of validation_target_ids with validation_log_probs
-            validation_target_ids_expanded = validation_target_ids.unsqueeze(0).expand(validation_input_tok["input_ids"].size(0), -1)
-
             validation_loss = torch.nn.functional.nll_loss(
                 validation_log_probs.view(-1, validation_log_probs.size(-1)),
                 validation_target_ids_expanded.view(-1),
                 ignore_index=tok.pad_token_id,
                 reduction='mean'
             )
-
             validation_losses.append(validation_loss.item())
 
         print(
@@ -227,6 +237,7 @@ def compute_z(
     plt.show()
 
     return target
+
 
 
 

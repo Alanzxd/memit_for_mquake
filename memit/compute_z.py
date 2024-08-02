@@ -202,6 +202,13 @@ def compute_z(
             print(f"Validation log probs: {validation_log_probs}")
             print(f"Validation targets expanded: {validation_target_ids_expanded}")
 
+            # Make sure validation_target_ids_expanded is the correct shape
+            if validation_target_ids_expanded.size(1) > validation_log_probs.size(1):
+                validation_target_ids_expanded = validation_target_ids_expanded[:, :validation_log_probs.size(1)]
+            elif validation_target_ids_expanded.size(1) < validation_log_probs.size(1):
+                padding = torch.full((validation_target_ids_expanded.size(0), validation_log_probs.size(1) - validation_target_ids_expanded.size(1)), tok.pad_token_id, device="cuda")
+                validation_target_ids_expanded = torch.cat((validation_target_ids_expanded, padding), dim=1)
+
             validation_loss = torch.nn.functional.nll_loss(
                 validation_log_probs.view(-1, validation_log_probs.size(-1)),
                 validation_target_ids_expanded.view(-1),

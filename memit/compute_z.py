@@ -174,7 +174,7 @@ def compute_z(
             validation_log_probs = torch.log_softmax(validation_logits, dim=2)
 
             # Align the shape of validation_target_ids with validation_log_probs
-            validation_target_ids_expanded = validation_target_ids.unsqueeze(0).expand(validation_log_probs.size(0), -1)
+            validation_target_ids_expanded = validation_target_ids.unsqueeze(0).expand(validation_input_tok["input_ids"].size(0), -1)
 
             validation_loss = torch.nn.functional.nll_loss(
                 validation_log_probs.view(-1, validation_log_probs.size(-1)),
@@ -182,6 +182,7 @@ def compute_z(
                 ignore_index=tok.pad_token_id,
                 reduction='mean'
             )
+
             validation_losses.append(validation_loss.item())
 
         print(

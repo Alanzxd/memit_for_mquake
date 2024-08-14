@@ -93,7 +93,7 @@ def calculate_multi_hop_accuracy(
     questions = record['questions']
     correct_answer = record['new_answer']
     answer_aliases = record.get('new_answer_alias', [])
-    extended_answers = record.get('answer_extended', [])
+    extended_answers = record.get('NULL', [])
     requested_rewrite = record['requested_rewrite']
     single_hops = record['new_single_hops']
     

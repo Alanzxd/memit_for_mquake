@@ -35,7 +35,7 @@ ALG_DICT = {
     "MEMIT": (MEMITHyperParams, apply_memit_to_model),
     "ROME": (ROMEHyperParams, apply_rome_to_model),
     "FT": (FTHyperParams, apply_ft_to_model),
-    "MEND": (MENDHyperParams, MendRewriteExecutor().apply_to_model),
+    "MEND": (MENDHyperParams, MendRewriteExecutor().apply_to_),
 }
 
 DS_DICT = {
@@ -54,7 +54,7 @@ DS_DICT = {
 
 def main(
     alg_name: str,
-    model_name: Union[str, Tuple],
+    _name: Union[str, Tuple],
     hparams_fname: str,
     ds_name: str,
     dataset_size_limit: int,
@@ -102,7 +102,7 @@ def main(
         shutil.copyfile(params_path, run_dir / "params.json")
     print(f"Executing {alg_name} with parameters {hparams}")
 
-    # Instantiate vanilla model
+        # Instantiate vanilla model
     if type(model_name) is str:
         print("Instantiating model")
         model = AutoModelForCausalLM.from_pretrained(model_name).cuda()
@@ -112,7 +112,17 @@ def main(
     else:
         model, tok = model_name
         model_name = model.config._name_or_path
+    
+    # 修改模型中的所有 Dropout 层的参数
+    def set_dropout(model, p):
+        for name, module in model.named_modules():
+            if isinstance(module, nn.Dropout):
+                module.p = p
+    
+    # 将 Dropout 概率设置为 0.5
+    set_dropout(model, p=0.5)
 
+    
     # Load data
     print("Loading dataset, attribute snippets, tf-idf data")
     snips = AttributeSnippets(DATA_DIR) if not skip_generation_tests else None

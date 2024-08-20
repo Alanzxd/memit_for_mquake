@@ -53,7 +53,7 @@ DS_DICT = {
 
 def main(
     alg_name: str,
-    _name: Union[str, Tuple],
+    model_name: Union[str, Tuple],
     hparams_fname: str,
     ds_name: str,
     dataset_size_limit: int,

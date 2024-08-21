@@ -31,7 +31,7 @@ class MQuAKE_T(Dataset):
     """
     def __init__(self, data_dir: str, size: typing.Optional[int] = None, *args, **kwargs):
         data_dir = Path(data_dir)
-        mquake_loc = data_dir / "MQuAKE-CF-3k.json"
+        mquake_loc = data_dir / "MQuAKE-CF-3k-A.json"
         if not mquake_loc.exists():
             remote_url = f"{REMOTE_ROOT}/MQuAKE-CF-3k.json"
             print(f"{mquake_loc} does not exist. Downloading from {remote_url}")
@@ -43,7 +43,7 @@ class MQuAKE_T(Dataset):
         if size is not None:
             self.data = self.data[:size]
         
-        print(f"Loaded MQuAKE-CF-3k dataset with {len(self)} elements")
+        print(f"Loaded MQuAKE-CF-3k-A dataset with {len(self)} elements")
 
     def __len__(self):
         return len(self.data)
@@ -98,7 +98,7 @@ def calculate_multi_hop_accuracy(
     single_hops = record['new_single_hops']
     
     all_questions = questions
-
+    '''
     for question in all_questions:
         full_prompt = multi_hop_prompt + "\nQ: " + question 
         #clear_torch_cache()
@@ -129,7 +129,8 @@ def calculate_multi_hop_accuracy(
                 correct_responses += 1
 
     multi_hop_accuracy = correct_responses / len(questions)
-
+    '''
+    multi_hop_accuracy=0
     # Editwise accuracy
     edit_success_count = 0
     
@@ -319,10 +320,10 @@ if __name__ == "__main__":
         rel_prompts = json.load(f) 
     main(
         model_name="EleutherAI/gpt-j-6B",
-        ds_name="mquake_cf",
+        ds_name="mquake_cf_A",
         dataset_size_limit=3000,
         generation_test_interval=1,
-        dir_name="mquake_cf",
+        dir_name="mquake_cf_A",
         multi_hop_prompt=multi_hop_prompt,
         rel_prompts=rel_prompts,
     )

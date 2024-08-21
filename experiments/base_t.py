@@ -31,7 +31,7 @@ class MQuAKE_T(Dataset):
     """
     def __init__(self, data_dir: str, size: typing.Optional[int] = None, *args, **kwargs):
         data_dir = Path(data_dir)
-        mquake_loc = data_dir / "MQuAKE-T.json"
+        mquake_loc = data_dir / "MQuAKE-T-A.json"
         if not mquake_loc.exists():
             remote_url = f"{REMOTE_ROOT}/MQuAKE-CF-3k.json"
             print(f"{mquake_loc} does not exist. Downloading from {remote_url}")
@@ -43,7 +43,7 @@ class MQuAKE_T(Dataset):
         if size is not None:
             self.data = self.data[:size]
         
-        print(f"Loaded MQuAKE-CF-3k dataset with {len(self)} elements")
+        print(f"Loaded MQuAKE-t-a dataset with {len(self)} elements")
 
     def __len__(self):
         return len(self.data)
@@ -99,7 +99,7 @@ def calculate_multi_hop_accuracy(
     
     all_questions = questions
 
-    for question in all_questions:
+    '''for question in all_questions:
         full_prompt = multi_hop_prompt + "\nQ: " + question 
         #clear_torch_cache()
         inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
@@ -128,8 +128,8 @@ def calculate_multi_hop_accuracy(
                     any(ext_answer.lower() in generated_answer.lower() for ext_answer in extended_answers)):
                 correct_responses += 1
 
-    multi_hop_accuracy = correct_responses / len(questions)
-
+    multi_hop_accuracy = correct_responses / len(questions)'''
+    multi_hop_accuracy=0
     # Editwise accuracy
     edit_success_count = 0
     
@@ -322,7 +322,7 @@ if __name__ == "__main__":
         ds_name="mquake",
         dataset_size_limit=3000,
         generation_test_interval=1,
-        dir_name="mquake_t",
+        dir_name="mquake_t_a",
         multi_hop_prompt=multi_hop_prompt,
         rel_prompts=rel_prompts,
     )

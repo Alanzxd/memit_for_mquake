@@ -99,7 +99,7 @@ def calculate_multi_hop_accuracy(
     
     all_questions = questions
 
-    for question in all_questions:
+    '''for question in all_questions:
         full_prompt = multi_hop_prompt + "\nQ: " + question 
         #clear_torch_cache()
         inputs = tokenizer(full_prompt, return_tensors='pt').to(model.device)
@@ -128,8 +128,8 @@ def calculate_multi_hop_accuracy(
                     any(ext_answer.lower() in generated_answer.lower() for ext_answer in extended_answers)):
                 correct_responses += 1
 
-    multi_hop_accuracy = correct_responses / len(questions)
-
+    multi_hop_accuracy = correct_responses / len(questions)'''
+    multi_hop_accuracy = 0
     # Editwise accuracy
     edit_success_count = 0
     

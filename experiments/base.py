@@ -157,7 +157,7 @@ def calculate_multi_hop_accuracy(
             do_sample=True
         )
         generated_answer = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        generated_answer = generated_answer.replace(full_prompt, "").strip()
+        
         
         
         print("Single Hop Question:", question)

@@ -321,10 +321,10 @@ if __name__ == "__main__":
         rel_prompts = json.load(f) 
     main(
         model_name="EleutherAI/gpt-j-6B",
-        ds_name="mquake_cf_A",
+        ds_name="mquake_cf",
         dataset_size_limit=3000,
         generation_test_interval=1,
-        dir_name="mquake_cf_A",
+        dir_name="mquake_cf",
         multi_hop_prompt=multi_hop_prompt,
         rel_prompts=rel_prompts,
     )

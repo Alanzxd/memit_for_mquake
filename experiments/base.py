@@ -31,7 +31,7 @@ class MQuAKE_T(Dataset):
     """
     def __init__(self, data_dir: str, size: typing.Optional[int] = None, *args, **kwargs):
         data_dir = Path(data_dir)
-        mquake_loc = data_dir / "MQuAKE-CF-3k-A.json"
+        mquake_loc = data_dir / "MQuAKE-CF-3k.json"
         if not mquake_loc.exists():
             remote_url = f"{REMOTE_ROOT}/MQuAKE-CF-3k.json"
             print(f"{mquake_loc} does not exist. Downloading from {remote_url}")
@@ -91,14 +91,14 @@ def calculate_multi_hop_accuracy(
     correct_responses = 0
     generated_answers = []
     questions = record['questions']
-    correct_answer = record['new_answer']
-    answer_aliases = record.get('new_answer_alias', [])
+    correct_answer = record['answer']
+    answer_aliases = record.get('answer_alias', [])
     extended_answers = record.get('answer_extended', [])
     requested_rewrite = record['requested_rewrite']
-    single_hops = record['new_single_hops']
+    single_hops = record['single_hops']
     
     all_questions = questions
-    '''
+    
     for question in all_questions:
         full_prompt = multi_hop_prompt + "\nQ: " + question 
         #clear_torch_cache()
@@ -129,8 +129,8 @@ def calculate_multi_hop_accuracy(
                 correct_responses += 1
 
     multi_hop_accuracy = correct_responses / len(questions)
-    '''
-    multi_hop_accuracy=0
+    
+    
     # Editwise accuracy
     edit_success_count = 0
     
@@ -158,8 +158,7 @@ def calculate_multi_hop_accuracy(
         )
         generated_answer = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         generated_answer = generated_answer.replace(full_prompt, "").strip()
-        parts = generated_answer.split('Q:')[0]
-        generated_answer = parts
+        
         
         print("Single Hop Question:", question)
         print("Generated Answer:\n", generated_answer)
